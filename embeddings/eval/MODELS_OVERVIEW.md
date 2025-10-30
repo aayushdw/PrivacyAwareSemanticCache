@@ -2,14 +2,6 @@
 
 Complete list of **25 embedding models** available in the model registry, from fast prototyping models to state-of-the-art (SOTA) large models.
 
-## Summary by Category
-
-- **Fast Models**: 3 models (384d) - optimized for speed
-- **Balanced Models**: 5 models (384-768d) - good speed/quality trade-off
-- **Quality Models**: 9 models (768-1024d) - **LARGE MODELS** with highest accuracy
-- **Multilingual Models**: 4 models (384-768d) - support 50-100+ languages
-- **Domain-Specific**: 2 models (768d) - specialized for legal/scientific text
-
 **Total: 25 models**
 
 ---
@@ -73,67 +65,6 @@ Complete list of **25 embedding models** available in the model registry, from f
 | `distiluse-multilingual` | DistilUSE-Multilingual | 512 | 50+ | Multilingual USE |
 | `labse` | LaBSE | 768 | 100+ | Language-agnostic BERT |
 
----
-
-## Performance Expectations
-
-### Fast Models (384d)
-- **Speed**: ⚡⚡⚡ Very Fast
-- **Quality**: ⭐⭐ Good
-- **Use Cases**: Prototyping, development, real-time applications
-- **Memory**: ~100-200 MB
-
-### Balanced Models (768d)
-- **Speed**: ⚡⚡ Fast
-- **Quality**: ⭐⭐⭐ Very Good
-- **Use Cases**: Production, general-purpose semantic search
-- **Memory**: ~200-400 MB
-
-### Quality Models - Base (768d)
-- **Speed**: ⚡ Moderate
-- **Quality**: ⭐⭐⭐⭐ Excellent
-- **Use Cases**: High-accuracy requirements, competitive benchmarks
-- **Memory**: ~400-800 MB
-
-### Quality Models - Large (1024d)
-- **Speed**: 🐢 Slower
-- **Quality**: ⭐⭐⭐⭐⭐ State-of-the-art
-- **Use Cases**: Maximum accuracy, research, benchmarking
-- **Memory**: ~800-1500 MB
-
----
-
-## Recommended Models by Use Case
-
-### 🚀 Quick Prototyping
-```python
-models = ['minilm-l6']
-```
-
-### 🎯 Production (Balanced)
-```python
-models = ['mpnet-base', 'gte-base', 'bge-base']
-```
-
-### 🏆 Maximum Quality (Research/Benchmarking)
-```python
-models = ['instructor-xl', 'gte-large', 'bge-large']
-```
-
-### 🌍 Multilingual Applications
-```python
-models = ['paraphrase-multilingual-mpnet', 'labse']
-```
-
-### ⚖️ Legal Domain
-```python
-models = ['legal-bert']
-```
-
-### 🔬 Scientific Domain
-```python
-models = ['scibert']
-```
 
 ---
 
@@ -175,64 +106,67 @@ compare_all_models(max_samples=500)  # Use fewer samples for speed
 
 ---
 
+## Optimized Threshold Performance
+
+Results from comprehensive threshold tuning across 21 available models (evaluated on semantic similarity task).
+
+### Top 10 Performers (by F1 Score)
+
+| Rank | Model | Category | Threshold | Accuracy | Precision | Recall | F1 |
+|------|-------|----------|-----------|----------|-----------|--------|-----|
+| 1 | **RoBERTa-Large** | quality | 0.770 | 0.8322 | 0.7256 | 0.8866 | **0.7981** |
+| 2 | **MPNet-Base** | balanced | 0.780 | 0.8188 | 0.7146 | 0.8583 | **0.7799** |
+| 3 | **Instructor-Large** | quality | 0.950 | 0.8152 | 0.7133 | 0.8460 | **0.7740** |
+| 4 | **DistilRoBERTa** | balanced | 0.730 | 0.7986 | 0.6706 | 0.9070 | **0.7711** |
+| 5 | **Instructor-XL** | quality | 0.880 | 0.8064 | 0.6976 | 0.8513 | **0.7669** |
+| 6 | **Paraphrase-Multilingual-MPNet** | multilingual | 0.800 | 0.7920 | 0.6683 | 0.8813 | **0.7601** |
+| 7 | **BGE-Large** | quality | 0.800 | 0.7800 | 0.6499 | 0.8925 | **0.7521** |
+| 8 | **MiniLM-L12** | fast | 0.780 | 0.7876 | 0.6696 | 0.8529 | **0.7502** |
+| 9 | **MiniLM-L6** | fast | 0.740 | 0.7734 | 0.6408 | 0.8968 | **0.7475** |
+| 10 | **BGE-Base** | quality | 0.810 | 0.7770 | 0.6490 | 0.8791 | **0.7468** |
+
+### All Models Performance (Sorted by F1)
+
+| Model | Category | Threshold | Accuracy | Precision | Recall | F1 |
+|-------|----------|-----------|----------|-----------|--------|-----|
+| RoBERTa-Large | quality | 0.770 | 0.8322 | 0.7256 | 0.8866 | 0.7981 |
+| MPNet-Base | balanced | 0.780 | 0.8188 | 0.7146 | 0.8583 | 0.7799 |
+| Instructor-Large | quality | 0.950 | 0.8152 | 0.7133 | 0.8460 | 0.7740 |
+| DistilRoBERTa | balanced | 0.730 | 0.7986 | 0.6706 | 0.9070 | 0.7711 |
+| Instructor-XL | quality | 0.880 | 0.8064 | 0.6976 | 0.8513 | 0.7669 |
+| Paraphrase-Multilingual-MPNet | multilingual | 0.800 | 0.7920 | 0.6683 | 0.8813 | 0.7601 |
+| BGE-Large | quality | 0.800 | 0.7800 | 0.6499 | 0.8925 | 0.7521 |
+| MiniLM-L12 | fast | 0.780 | 0.7876 | 0.6696 | 0.8529 | 0.7502 |
+| MiniLM-L6 | fast | 0.740 | 0.7734 | 0.6408 | 0.8968 | 0.7475 |
+| BGE-Base | quality | 0.810 | 0.7770 | 0.6490 | 0.8791 | 0.7468 |
+| Paraphrase-Multilingual | multilingual | 0.770 | 0.7724 | 0.6449 | 0.8711 | 0.7411 |
+| GTE-Large | quality | 0.910 | 0.7582 | 0.6285 | 0.8642 | 0.7278 |
+| E5-Base | quality | 0.900 | 0.7508 | 0.6171 | 0.8791 | 0.7252 |
+| DistilUSE-Multilingual | multilingual | 0.750 | 0.7476 | 0.6144 | 0.8733 | 0.7213 |
+| GTE-Base | quality | 0.900 | 0.7418 | 0.6055 | 0.8888 | 0.7203 |
+| E5-Large | quality | 0.890 | 0.7414 | 0.6092 | 0.8604 | 0.7134 |
+| MS-MARCO-DistilBERT | balanced | 0.620 | 0.7366 | 0.6019 | 0.8733 | 0.7126 |
+| MS-MARCO-MiniLM | balanced | 0.680 | 0.7312 | 0.5982 | 0.8567 | 0.7045 |
+| LaBSE | multilingual | 0.710 | 0.7192 | 0.5842 | 0.8642 | 0.6972 |
+| Legal-BERT | balanced | 0.910 | 0.6292 | 0.5026 | 0.8353 | 0.6276 |
+| SciBERT | balanced | 0.840 | 0.6102 | 0.4878 | 0.8481 | 0.6194 |
+
+### Key Insights
+
+1. **Best Overall**: RoBERTa-Large achieves the highest F1 score (0.7981) with optimal threshold at 0.770
+2. **Best Balanced Model**: MPNet-Base (F1: 0.7799, threshold: 0.780) - excellent performance for production use
+3. **Best Fast Model**: MiniLM-L12 (F1: 0.7502, threshold: 0.780) - strong performance with minimal resources
+4. **Domain Models**: Legal-BERT and SciBERT show lower performance on general semantic similarity task (specialized for domain-specific use)
+
+---
+
 ## MTEB Leaderboard Rankings
 
-The **Massive Text Embedding Benchmark (MTEB)** is the standard for evaluating embedding models.
+Check [MTEB Leaderboard](https://huggingface.co/spaces/mteb/leaderboard) for latest rankings.*
 
-### Top Performers in This Registry (approximate MTEB scores)
-
-1. **Instructor-XL**: ~68-70 (instruction-based, very versatile)
-2. **GTE-Large**: ~65-67 (general-purpose, top performer)
-3. **BGE-Large**: ~65-67 (consistently high scores)
-4. **E5-Large**: ~64-66 (diverse training data)
-5. **GTE-Base**: ~63-65 (best base model)
-6. **BGE-Base**: ~63-65 (excellent balance)
-7. **MPNet-Base**: ~62-64 (classic strong baseline)
-
-*Note: Exact scores vary by task. Check [MTEB Leaderboard](https://huggingface.co/spaces/mteb/leaderboard) for latest rankings.*
 
 ---
 
-## Usage Examples
-
-### Test a Single Large Model
-```python
-from embeddings import EmbeddingEngine, SimilarityEvaluator, load_train_dataset
-
-# Use a large SOTA model
-engine = EmbeddingEngine(model_name='BAAI/bge-large-en-v1.5')
-evaluator = SimilarityEvaluator(engine, similarity_threshold=0.85)
-
-df = load_train_dataset()
-metrics = evaluator.evaluate_dataset(df, max_samples=1000)
-evaluator.print_evaluation_report(metrics)
-```
-
-### Compare Fast vs Quality Models
-```python
-from embeddings import ModelComparison
-
-comparison = ModelComparison(threshold=0.85, max_samples=1000)
-comparison.compare_models([
-    'minilm-l6',      # Fast baseline
-    'mpnet-base',     # Balanced
-    'gte-large',      # SOTA quality
-    'bge-large'       # SOTA quality alternative
-])
-```
-
-### Find the Best Model for Your Task
-```python
-from embeddings import compare_all_models
-
-# Compare all 25 models
-comparison = compare_all_models(threshold=0.85, max_samples=500)
-
-# Results saved to embeddings/eval/results/
-# Check which model has highest F1 score for your data
-```
-
----
 
 ## Adding More Models
 

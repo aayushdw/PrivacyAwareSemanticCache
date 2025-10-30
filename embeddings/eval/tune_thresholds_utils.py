@@ -126,39 +126,6 @@ def run_tune_with_different_sample_sizes():
         print(f"  {size:5d} samples: {threshold:.3f}")
 
 
-def run_programmatic_usage():
-    """Programmatic usage for custom workflows."""
-    print("\n" + "="*100)
-    print("TUNING: Programmatic Usage")
-    print("="*100)
-
-    from dataset import load_train_dataset
-
-    # Load and prepare data
-    df = load_train_dataset()
-    df_sample = df.sample(n=2000, random_state=42)
-
-    # Create tuner
-    tuner = ThresholdTuner(max_samples=2000)
-
-    # Tune individual models
-    print("\nTuning individual models with custom data...")
-    models = ['minilm-l6', 'mpnet-base']
-
-    for model in models:
-        result = tuner.tune_model(model, df_sample, metric='f1')
-        tuner.tuning_results.append(result)
-
-    # Save results
-    tuner.save_results('custom_tuning_results.json')
-
-    # Use tuned thresholds in evaluation
-    print("\nOptimal thresholds for use in evaluation:")
-    thresholds = tuner.get_optimal_thresholds()
-    for model_key, threshold in thresholds.items():
-        print(f"  {model_key}: {threshold:.3f}")
-
-
 def run_tune_and_evaluate():
     """Tune on train, then evaluate on validation."""
     print("\n" + "="*100)
@@ -195,13 +162,6 @@ def run_tune_and_evaluate():
 
 def run_tune_all_models():
     """Tune all 25 models in the registry (comprehensive)."""
-    print("\n" + "="*100)
-    print("TUNING: All Models in Registry")
-    print("="*100)
-
-    print("\nWARNING: This will tune all 25 models and may take significant time!")
-    print("Recommendation: Use fewer samples (3000) for faster completion.")
-
     # Get all model keys
     from eval.model_registry import get_all_model_keys
     all_models = get_all_model_keys()
@@ -211,8 +171,7 @@ def run_tune_all_models():
         print(f"  {i}. {model}")
 
     # Tune all models with reduced samples for speed
-    print(f"\nTuning all models with 3000 samples each...")
-    tuner = tune_all_models(max_samples=3000, metric='f1')
+    tuner = tune_all_models(max_samples=5000, metric='f1')
 
     # Get and display all thresholds
     print("\n" + "="*100)
@@ -254,17 +213,13 @@ def run_tune_all_models():
 
 
 def main():
-    print("\nRunning: Tune Default Models")
     # run_tune_default_models()
-
-    # Uncomment to run other utilities:
     # run_tune_specific_models()
     # run_tune_with_different_metrics()
     # run_tune_by_category()
     # run_tune_with_different_sample_sizes()
-    # run_programmatic_usage()
     # run_tune_and_evaluate()
-    run_tune_all_models()  # Warning: Takes significant time!
+    run_tune_all_models()  # Takes significant time!
 
 
 if __name__ == "__main__":
