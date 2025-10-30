@@ -29,7 +29,8 @@ embeddings/
 - `evaluator.py`
 - `model_registry.py`
 - `model_comparison.py`
-- `compare_models_example.py`
+- `threshold_tuner.py`
+- `tune_thresholds_utils.py`
 
 **Stayed in `embeddings/`:**
 - `embedding_engine.py` (core functionality)
@@ -71,13 +72,13 @@ from embeddings import SimilarityEvaluator, get_model_info, compare_default_mode
 **Old commands:**
 ```bash
 python3 embeddings/evaluator.py
-python3 embeddings/compare_models_example.py
+python3 embeddings/compare_models_example.py  # Deprecated
 ```
 
 **New commands:**
 ```bash
 python3 -m embeddings.eval.evaluator
-python3 -m embeddings.eval.compare_models_example
+python3 -m embeddings.eval.tune_thresholds_utils  # Recommended approach
 ```
 
 ### 4. Backward Compatibility
@@ -119,11 +120,12 @@ from embeddings import run_evaluation
 metrics = run_evaluation(threshold=0.85, max_samples=1000)
 ```
 
-### Compare Models
+### Tune and Compare Models (Recommended)
 ```python
-from embeddings import compare_default_models
+from embeddings.eval.tune_thresholds_utils import run_tune_all_models
 
-comparison = compare_default_models(threshold=0.85, max_samples=1000)
+# Automatically finds optimal threshold for each model
+tuner = run_tune_all_models()
 # Results automatically saved to embeddings/eval/results/
 ```
 

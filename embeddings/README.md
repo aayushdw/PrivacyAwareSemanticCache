@@ -43,17 +43,18 @@ metrics = run_evaluation()
 metrics = run_evaluation(threshold=0.80, max_samples=500)
 ```
 
-### 4. Compare Multiple Models
+### 4. Tune Thresholds and Compare Models
 
 ```python
-from embeddings import compare_default_models
+from embeddings.eval.tune_thresholds_utils import run_tune_all_models
 
-# Compare default set of models
-comparison = compare_default_models(threshold=0.85, max_samples=1000)
+# Automatically find optimal thresholds for all models
+# Each model is tuned individually for best F1 score
+tuner = run_tune_all_models()
 
-# Get results as DataFrame
-df = comparison.get_results_dataframe()
-print(df[['model_name', 'f1_score', 'accuracy']])
+# Get optimal thresholds
+thresholds = tuner.get_optimal_thresholds()
+print(thresholds)  # {'mpnet-base': 0.780, 'roberta-large': 0.770, ...}
 ```
 
 ## Available Models
@@ -133,41 +134,42 @@ fast_models = get_models_by_category('fast')
 default_models = get_default_comparison_set()
 ```
 
+### threshold_tuner.py & tune_thresholds_utils.py
+Automatically find optimal thresholds for each model.
+
+```python
+from embeddings.eval.tune_thresholds_utils import (
+    run_tune_all_models,
+    run_tune_default_models,
+    run_tune_specific_models
+)
+
+# Tune all 21 models (comprehensive)
+tuner = run_tune_all_models()
+thresholds = tuner.get_optimal_thresholds()
+
+# Tune default comparison set
+run_tune_default_models()
+
+# Tune specific models
+run_tune_specific_models()  # Edit function to specify models
+```
+
+**Why use threshold tuning:**
+- Each model performs best at a different threshold (e.g., RoBERTa: 0.770, Instructor: 0.950)
+- Automatic optimization for F1, precision, or recall
+- More accurate model comparisons than fixed thresholds
+- See [MODELS_OVERVIEW.md](eval/MODELS_OVERVIEW.md) for optimized results
+
 ### model_comparison.py
-Compare multiple models.
+Compare models with fixed thresholds (use threshold tuning instead for better results).
 
 ```python
 from embeddings import ModelComparison
 
-# Create comparison
+# Create comparison with fixed threshold (not recommended)
 comparison = ModelComparison(threshold=0.85, max_samples=1000)
-
-# Compare specific models
-comparison.compare_models(['minilm-l6', 'mpnet-base', 'distilroberta'])
-
-# Save results
-comparison.save_results('results.json')
-
-# Get DataFrame
-df = comparison.get_results_dataframe()
-```
-
-**Helper Functions:**
-```python
-from embeddings import (
-    compare_default_models,
-    compare_all_models,
-    compare_category
-)
-
-# Compare default set
-compare_default_models(threshold=0.85, max_samples=1000)
-
-# Compare all models
-compare_all_models(threshold=0.85, max_samples=500)
-
-# Compare category
-compare_category('balanced', threshold=0.85, max_samples=1000)
+comparison.compare_models(['minilm-l6', 'mpnet-base'])
 ```
 
 ### dataset.py
@@ -195,14 +197,14 @@ python3 -m embeddings.eval.model_registry
 # Evaluate single model
 python3 -m embeddings.eval.evaluator
 
-# Compare models
-python3 -m embeddings.eval.compare_models_example
+# Tune thresholds for all models (recommended)
+python3 -m embeddings.eval.tune_thresholds_utils
 
 # Basic embedding example
 python3 -m embeddings.example_usage
 ```
 
-Note: Results from model comparison are automatically saved to `embeddings/eval/results/`
+Note: Results from threshold tuning and model comparison are automatically saved to `embeddings/eval/results/`
 
 ## Dataset Format
 
@@ -214,28 +216,31 @@ The evaluation dataset (`data/questions.csv`) should have these columns:
 
 ## Configuration
 
-### Adjust Similarity Threshold
+### Automatic Threshold Optimization (Recommended)
 
 ```python
-# Lower threshold = more pairs classified as similar
-comparison = compare_default_models(threshold=0.75, max_samples=1000)
+from embeddings.eval.threshold_tuner import ThresholdTuner
 
-# Higher threshold = fewer pairs classified as similar
-comparison = compare_default_models(threshold=0.90, max_samples=1000)
+# Automatically find optimal threshold for each model
+tuner = ThresholdTuner(max_samples=5000)
+tuner.tune_models(['mpnet-base', 'roberta-large'], metric='f1')
+
+# Get optimized thresholds
+optimal_thresholds = tuner.get_optimal_thresholds()
+# Result: {'mpnet-base': 0.780, 'roberta-large': 0.770}
 ```
 
 ### Adjust Sample Size
 
 ```python
-# Quick evaluation (100 samples)
-compare_default_models(max_samples=100)
+# Quick tuning (1000 samples)
+ThresholdTuner(max_samples=1000)
 
-# Standard evaluation (1000 samples)
-compare_default_models(max_samples=1000)
+# Standard tuning (5000 samples)
+ThresholdTuner(max_samples=5000)
 
-# Full evaluation (all samples)
-df = load_dataset()
-compare_default_models(max_samples=len(df))
+# Comprehensive tuning (10000+ samples)
+ThresholdTuner(max_samples=10000)
 ```
 
 ## Performance Tips
@@ -304,9 +309,12 @@ embeddings/
 └── eval/                        # Evaluation module
     ├── __init__.py              # Eval module initialization
     ├── evaluator.py             # Single model evaluation
-    ├── model_registry.py        # Model registry and info
+    ├── model_registry.py        # Model registry (25 models)
     ├── model_comparison.py      # Multi-model comparison
-    ├── compare_models_example.py # Comparison examples
+    ├── threshold_tuner.py       # Automatic threshold optimization
+    ├── tune_thresholds_utils.py # Threshold tuning utilities
+    ├── MODELS_OVERVIEW.md       # Complete model documentation
+    ├── THRESHOLD_TUNING.md      # Threshold tuning guide
     └── results/                 # Results directory (JSON files saved here)
         └── .gitignore           # Ignore result files in git
 ```
