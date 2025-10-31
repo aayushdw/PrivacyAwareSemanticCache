@@ -16,22 +16,6 @@ from eval.threshold_tuner import (
 from eval.model_registry import get_default_comparison_set, get_models_by_category
 
 
-def run_tune_default_models():
-    """Tune thresholds for default comparison set."""
-    print("\n" + "="*100)
-    print("TUNING: Default Model Set")
-    print("="*100)
-
-    # Tune default set with 5000 samples
-    tuner = tune_default_models(max_samples=5000, metric='f1')
-
-    # Get optimal thresholds
-    thresholds = tuner.get_optimal_thresholds()
-    print("\nOptimal thresholds:")
-    for model, threshold in thresholds.items():
-        print(f"  {model}: {threshold:.3f}")
-
-
 def run_tune_specific_models():
     """Tune specific models of your choice."""
     print("\n" + "="*100)
@@ -41,10 +25,12 @@ def run_tune_specific_models():
     # Choose models to tune
     models = ['minilm-l6', 'mpnet-base', 'gte-base', 'bge-large']
 
+    # Data cleaning happens automatically in tune_models()
     tuner = tune_specific_models(
         model_keys=models,
         max_samples=5000,
-        metric='f1'
+        metric='f1',
+        min_precision=0.90
     )
 
 
@@ -55,6 +41,8 @@ def run_tune_with_different_metrics():
     print("="*100)
 
     models = ['minilm-l6', 'mpnet-base']
+
+    # Data cleaning happens automatically in tune_models()
 
     # Optimize for F1 score (balanced)
     print("\n--- Optimizing for F1 Score ---")
@@ -71,60 +59,27 @@ def run_tune_with_different_metrics():
     tuner_recall = ThresholdTuner(max_samples=3000)
     tuner_recall.tune_models(models, metric='recall')
 
+    # Optimize for F1 with precision constraint (precision-first approach)
+    print("\n--- Optimizing for F1 with Precision >= 0.90 ---")
+    tuner_precision_constrained = ThresholdTuner(max_samples=3000)
+    tuner_precision_constrained.tune_models(models, metric='f1', min_precision=0.90)
+
     # Compare results
     print("\n" + "="*100)
-    print("COMPARISON: F1 vs Precision vs Recall Optimization")
+    print("COMPARISON: Different Optimization Strategies")
     print("="*100)
 
     for model in models:
         f1_threshold = tuner_f1.get_optimal_thresholds()[model]
         prec_threshold = tuner_precision.get_optimal_thresholds()[model]
         rec_threshold = tuner_recall.get_optimal_thresholds()[model]
+        prec_constrained_threshold = tuner_precision_constrained.get_optimal_thresholds()[model]
 
         print(f"\n{model}:")
-        print(f"  F1-optimized threshold:        {f1_threshold:.3f}")
-        print(f"  Precision-optimized threshold: {prec_threshold:.3f}")
-        print(f"  Recall-optimized threshold:    {rec_threshold:.3f}")
-
-
-def run_tune_by_category():
-    """Tune all models in a specific category."""
-    print("\n" + "="*100)
-    print("TUNING: All Quality Models")
-    print("="*100)
-
-    # Get all quality models
-    quality_models = list(get_models_by_category('quality').keys())
-    print(f"Tuning {len(quality_models)} quality models: {quality_models}")
-
-    tuner = ThresholdTuner(max_samples=3000)
-    tuner.tune_models(quality_models, metric='f1')
-    tuner.save_results('threshold_tuning_quality_models.json')
-
-
-def run_tune_with_different_sample_sizes():
-    """Compare tuning with different sample sizes."""
-    print("\n" + "="*100)
-    print("TUNING: Different Sample Sizes")
-    print("="*100)
-
-    model = 'mpnet-base'
-    sample_sizes = [1000, 3000, 5000, 10000]
-
-    results = {}
-    for size in sample_sizes:
-        print(f"\n--- Tuning with {size} samples ---")
-        tuner = ThresholdTuner(max_samples=size)
-        tuner.tune_models([model], metric='f1')
-        results[size] = tuner.get_optimal_thresholds()[model]
-
-    # Compare results
-    print("\n" + "="*100)
-    print(f"COMPARISON: Optimal Threshold vs Sample Size for {model}")
-    print("="*100)
-    for size, threshold in results.items():
-        print(f"  {size:5d} samples: {threshold:.3f}")
-
+        print(f"  F1-optimized threshold:                    {f1_threshold:.3f}")
+        print(f"  Precision-optimized threshold:             {prec_threshold:.3f}")
+        print(f"  Recall-optimized threshold:                {rec_threshold:.3f}")
+        print(f"  F1-optimized (precision >= 0.90) threshold: {prec_constrained_threshold:.3f}")
 
 def run_tune_and_evaluate():
     """Tune on train, then evaluate on validation."""
@@ -137,13 +92,18 @@ def run_tune_and_evaluate():
     from embedding_engine import EmbeddingEngine
     from eval.model_registry import get_model_info
 
-    model_key = 'mpnet-base'
+    model_key = 'roberta-large'
 
     # Step 1: Tune on training data
     print("\n--- Step 1: Tuning on training data ---")
     train_df = load_train_dataset()
-    tuner = ThresholdTuner(max_samples=5000)
-    result = tuner.tune_model(model_key, train_df.head(5000), metric='f1')
+    tuner = ThresholdTuner(max_samples=25000)
+    # Use clean_data=True to handle any missing/invalid data
+    result = tuner.tune_model(model_key, train_df.head(25000), metric='f1', clean_data=True, min_precision=0.90)
+
+    if not result.get('success', False):
+        print(f"\n✗ Tuning failed: {result.get('error', 'Unknown error')}")
+        return
 
     optimal_threshold = result['optimal_threshold']
     print(f"\nOptimal threshold found: {optimal_threshold:.3f}")
@@ -156,7 +116,7 @@ def run_tune_and_evaluate():
     engine = EmbeddingEngine(model_name=model_info.model_id)
     evaluator = SimilarityEvaluator(engine, similarity_threshold=optimal_threshold)
 
-    metrics = evaluator.evaluate_dataset(val_df, max_samples=1000)
+    metrics = evaluator.evaluate_dataset(val_df, max_samples=10000)
     evaluator.print_evaluation_report(metrics)
 
 
@@ -171,7 +131,8 @@ def run_tune_all_models():
         print(f"  {i}. {model}")
 
     # Tune all models with reduced samples for speed
-    tuner = tune_all_models(max_samples=5000, metric='f1')
+    # Data cleaning happens automatically in tune_models()
+    tuner = tune_all_models(max_samples=1000, metric='f1', min_precision=0.80)
 
     # Get and display all thresholds
     print("\n" + "="*100)
@@ -213,11 +174,8 @@ def run_tune_all_models():
 
 
 def main():
-    # run_tune_default_models()
     # run_tune_specific_models()
     # run_tune_with_different_metrics()
-    # run_tune_by_category()
-    # run_tune_with_different_sample_sizes()
     # run_tune_and_evaluate()
     run_tune_all_models()  # Takes significant time!
 
