@@ -34,19 +34,19 @@ This chart shows the optimal similarity thresholds for each model, grouped by ca
 
 ### 2. Model Performance Comparison
 
-![Metrics Comparison](metrics_comparison.png)
+![Metrics Comparison](plots/metrics_comparison.png)
 
 Comparison of precision, recall, and F1 scores across all models. Models are sorted by F1 score (ascending).
 
 ### 3. Precision vs Recall Trade-off
 
-![Precision vs Recall](precision_vs_recall.png)
+![Precision vs Recall](plots/precision_vs_recall.png)
 
 This scatter plot visualizes the precision-recall trade-off for each model. The diagonal lines represent constant F1 scores. Models in the upper-right corner achieve the best balance.
 
 ### 4. Confusion Matrices - Top Performers
 
-![Confusion Matrices](confusion_matrices_top_models.png)
+![Confusion Matrices](plots/confusion_matrices_top_models.png)
 
 Confusion matrices for the top 6 models by F1 score, showing:
 - **TN (True Negatives):** Correctly identified non-duplicates
@@ -56,7 +56,7 @@ Confusion matrices for the top 6 models by F1 score, showing:
 
 ### 5. Performance by Category
 
-![Category Performance](category_performance.png)
+![Category Performance](plots/category_performance.png)
 
 Average performance metrics and optimal thresholds grouped by model category.
 
