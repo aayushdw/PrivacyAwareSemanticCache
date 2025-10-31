@@ -1,3 +1,4 @@
 .env
 GEMINI.md
 *.csv
+data/chroma_db/
