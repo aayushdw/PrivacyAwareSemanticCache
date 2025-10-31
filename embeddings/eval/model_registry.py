@@ -182,6 +182,29 @@ MODEL_REGISTRY = {
         dimension=768,
         category='balanced'
     ),
+
+    # # Qwen3 Embedding Models - SOTA multilingual (100+ languages)
+    'qwen3-0.6b': ModelInfo(
+        name='Qwen3-Embedding-0.6B',
+        model_id='Qwen/Qwen3-Embedding-0.6B',
+        description='Qwen3 0.6B (1024d) - Fast SOTA multilingual, 100+ languages, 32k context',
+        dimension=1024,
+        category='quality'
+    ),
+    # 'qwen3-4b': ModelInfo(
+    #     name='Qwen3-Embedding-4B',
+    #     model_id='Qwen/Qwen3-Embedding-4B',
+    #     description='Qwen3 4B (2560d) - MTEB #1 multilingual, 100+ languages, MRL support',
+    #     dimension=2560,
+    #     category='quality'
+    # ),
+    # 'qwen3-8b': ModelInfo(
+    #     name='Qwen3-Embedding-8B',
+    #     model_id='Qwen/Qwen3-Embedding-8B',
+    #     description='Qwen3 8B (4096d) - MTEB #1 (70.58), 100+ languages, highest quality',
+    #     dimension=4096,
+    #     category='quality'
+    # ),
 }
 
 

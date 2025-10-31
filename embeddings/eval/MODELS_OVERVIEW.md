@@ -1,8 +1,8 @@
 # Embedding Models Overview
 
-Complete list of **25 embedding models** available in the model registry, from fast prototyping models to state-of-the-art (SOTA) large models.
+Complete list of **28 embedding models** available in the model registry, from fast prototyping models to state-of-the-art (SOTA) large models.
 
-**Total: 25 models**
+**Total: 28 models** (including 3 new Qwen3 SOTA multilingual models)
 
 ---
 
@@ -53,6 +53,16 @@ Complete list of **25 embedding models** available in the model registry, from f
 | `e5-base` | E5-Base | 768 | Strong performance |
 | `bge-base` | BGE-Base | 768 | Excellent balance of quality and speed |
 
+### Qwen3 Models (NEW - SOTA Multilingual)
+
+| Key | Name | Dimensions | Description |
+|-----|------|------------|-------------|
+| `qwen3-0.6b` | **Qwen3-Embedding-0.6B** | 1024 | Fast SOTA multilingual, 100+ languages, 32k context |
+| `qwen3-4b` | **Qwen3-Embedding-4B** | 2560 | **MTEB #1 multilingual** - 100+ languages, MRL support |
+| `qwen3-8b` | **Qwen3-Embedding-8B** | 4096 | **MTEB #1 (70.58)** - Highest quality, 100+ languages |
+
+**Note**: Qwen3 models rank #1 on MTEB multilingual leaderboard (as of June 2025) and support 100+ languages with Apache 2.0 license.
+
 ---
 
 ## Multilingual Models (4)
@@ -97,11 +107,21 @@ compare_category('quality')
 # Tests all 9 quality models
 ```
 
-### All Models (25 models)
+### All Models (28 models)
 ```python
 from embeddings import compare_all_models
 
 compare_all_models(max_samples=500)  # Use fewer samples for speed
+```
+
+### Qwen3 SOTA Models (NEW)
+```python
+from embeddings import ModelComparison
+
+# Test the new MTEB #1 multilingual models
+qwen_models = ['qwen3-0.6b', 'qwen3-4b', 'qwen3-8b']
+comparison = ModelComparison()
+comparison.compare_models(qwen_models)
 ```
 
 ---
