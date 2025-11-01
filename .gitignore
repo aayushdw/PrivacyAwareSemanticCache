@@ -2,3 +2,6 @@
 GEMINI.md
 *.csv
 data/chroma_db/
+__pycache__/
+*.pyc
+*.pyo
