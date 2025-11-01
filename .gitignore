@@ -2,6 +2,7 @@
 GEMINI.md
 *.csv
 data/chroma_db/
+data/chroma_db_test/
 __pycache__/
 *.pyc
 *.pyo

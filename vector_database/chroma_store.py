@@ -330,7 +330,7 @@ class ChromaVectorStore:
         if count > 0:
             # Get a sample to check embedding dimension
             sample = self.collection.peek(limit=1)
-            if sample['embeddings'] and len(sample['embeddings']) > 0:
+            if sample['embeddings'] is not None and len(sample['embeddings']) > 0:
                 stats["actual_embedding_dimension"] = len(sample['embeddings'][0])
 
         return stats
