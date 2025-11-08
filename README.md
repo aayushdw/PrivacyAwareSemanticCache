@@ -17,12 +17,11 @@ A privacy-preserving semantic cache for Large Language Model (LLM) queries using
 
 #### ✅ Vector Database Integration
 - ChromaDB-based vector store implementation
-- Efficient semantic similarity search
 - Persistent local storage
+- Efficient semantic similarity search
 
 #### ✅ Dataset Preparation
 - Question similarity dataset (Quora Question Pairs)
-- Training/test split functionality
 - Synthetic data generation capabilities
 
 ### Model Evaluation Results
@@ -51,7 +50,7 @@ A privacy-preserving semantic cache for Large Language Model (LLM) queries using
 
 ```
 ┌─────────────────────────────────────────────────┐
-│                User (CLI)                        │
+│                User (CLI)                       │
 └──────────────────┬──────────────────────────────┘
                    │
                    ▼
@@ -146,16 +145,16 @@ print(f"Embedding dimension: {embedding.shape}")  # (768,)
 - [x] Automatic threshold tuning
 - [x] Vector database (ChromaDB) integration
 - [x] Dataset preparation and splitting
-- [ ] **Cache Manager**
+- [x] **Cache Manager**
   - Integrate embedding engine + vector store
   - Implement cache hit/miss logic
   - Add cache statistics tracking
   - Response storage and retrieval
-- [ ] **CLI Query Interface**
+- [ ] **CLI Query Interface** (De-prioritized)
   - Command-line tool for queries
   - Cache hit/miss reporting
   - Statistics dashboard
-- [ ] **Basic Integration Tests**
+- [x] **Basic Integration Tests**
   - End-to-end cache flow
   - Performance benchmarks
 

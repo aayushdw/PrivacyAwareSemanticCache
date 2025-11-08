@@ -40,23 +40,16 @@ def similarity_to_distance_threshold(similarity_threshold: float) -> float:
     Args:
         similarity_threshold: Cosine similarity threshold (0 to 1)
                             Higher similarity = more similar
-                            Example: 0.78 from model evaluation
 
     Returns:
         float: Cosine distance threshold (0 to 2)
                Lower distance = more similar
-               Example: 0.22 for cache hits
 
     Example:
         >>> # MPNet-Base evaluation found optimal similarity threshold = 0.78
         >>> distance_threshold = similarity_to_distance_threshold(0.78)
         >>> print(distance_threshold)  # 0.22
         >>>
-        >>> # Use this threshold with SemanticCache
-        >>> cache = SemanticCache(
-        ...     embedding_model='sentence-transformers/all-mpnet-base-v2',
-        ...     similarity_threshold=distance_threshold
-        ... )
     """
     if not 0.0 <= similarity_threshold <= 1.0:
         raise ValueError("Similarity threshold must be between 0.0 and 1.0")

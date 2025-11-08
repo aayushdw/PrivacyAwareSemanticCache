@@ -6,3 +6,4 @@ data/chroma_db_test/
 __pycache__/
 *.pyc
 *.pyo
+lora_training_pipeline/models/
