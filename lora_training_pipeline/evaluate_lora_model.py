@@ -392,7 +392,7 @@ def main():
     val_csv = os.path.join(project_root, 'data', 'medium', 'questions_val.csv')
 
     # Path to the trained model
-    model_path = os.path.join(current_dir, 'models', 'best_model')
+    model_path = os.path.join(current_dir, 'models', 'final_model')
 
     if not os.path.exists(model_path):
         print(f"\nError: Model not found at {model_path}")
