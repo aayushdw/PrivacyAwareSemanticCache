@@ -15,7 +15,7 @@ import torch.nn as nn
 import pandas as pd
 import numpy as np
 from torch.utils.data import Dataset, DataLoader
-from transformers import AutoTokenizer, AutoModel, get_cosine_schedule_with_warmup
+from transformers import AutoTokenizer, AutoModel
 from peft import LoraConfig, get_peft_model, TaskType
 from tqdm import tqdm
 from typing import Optional, Dict, Any, Tuple
@@ -189,9 +189,6 @@ class MiniLMLoRATrainer:
             weight_decay=0.01
         )
 
-        # Learning rate scheduler will be initialized in train() after we know the dataset size
-        self.scheduler = None
-
         # Loss function
         self.criterion = nn.CosineEmbeddingLoss()
 
@@ -270,16 +267,11 @@ class MiniLMLoRATrainer:
                 self.optimizer.step()
                 self.optimizer.zero_grad()
 
-                # Update learning rate scheduler
-                if self.scheduler is not None:
-                    self.scheduler.step()
-
                 total_loss += accumulated_loss
                 accumulated_loss = 0.0
 
-            # Show current loss and learning rate
-            current_lr = self.optimizer.param_groups[0]['lr']
-            progress_bar.set_postfix({'loss': loss.item() * self.gradient_accumulation_steps, 'lr': f'{current_lr:.2e}'})
+            # Show current loss
+            progress_bar.set_postfix({'loss': loss.item() * self.gradient_accumulation_steps})
 
         avg_loss = total_loss / (len(dataloader) // self.gradient_accumulation_steps)
         return avg_loss
@@ -424,21 +416,8 @@ class MiniLMLoRATrainer:
             persistent_workers=True  # Keep workers alive between epochs
         )
 
-        # Initialize learning rate scheduler with warmup
-        num_training_steps = len(train_dataloader) * self.num_epochs
-        num_warmup_steps = int(0.1 * num_training_steps)  # 10% warmup
-
-        self.scheduler = get_cosine_schedule_with_warmup(
-            self.optimizer,
-            num_warmup_steps=num_warmup_steps,
-            num_training_steps=num_training_steps
-        )
-
         print(f"\nTraining Configuration:")
-        print(f"  Total training steps: {num_training_steps}")
-        print(f"  Warmup steps: {num_warmup_steps} (10%)")
-        print(f"  Initial LR: {self.learning_rate:.2e}")
-        print(f"  LR Schedule: Cosine annealing with warmup")
+        print(f"  Learning Rate: {self.learning_rate:.2e}")
         print(f"  Gradient Clipping: max_norm=1.0")
 
         # Training loop with fast monitoring
