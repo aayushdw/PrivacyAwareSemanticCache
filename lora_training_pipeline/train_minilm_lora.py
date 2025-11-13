@@ -109,7 +109,9 @@ class MiniLMLoRATrainer:
         num_epochs: int = 2,
         gradient_accumulation_steps: int = 1,
         output_dir: str = 'models',
-        device: Optional[str] = None
+        device: Optional[str] = None,
+        patience: int = 3,
+        min_delta: float = 0.0001
     ):
         """
         Initialize the trainer.
@@ -125,6 +127,8 @@ class MiniLMLoRATrainer:
             gradient_accumulation_steps: Number of steps to accumulate gradients
             output_dir: Directory to save models
             device: Device to use (None for auto-detect)
+            patience: Number of epochs to wait for improvement before early stopping
+            min_delta: Minimum change in validation metric to qualify as an improvement
         """
         self.model_name = model_name
         self.lora_r = lora_r
@@ -134,6 +138,8 @@ class MiniLMLoRATrainer:
         self.batch_size = batch_size
         self.num_epochs = num_epochs
         self.gradient_accumulation_steps = gradient_accumulation_steps
+        self.patience = patience
+        self.min_delta = min_delta
 
         # Setup device with MPS support for Apple Silicon
         if device is None:
@@ -196,9 +202,16 @@ class MiniLMLoRATrainer:
         self.history = {
             'train_loss': [],
             'train_metrics': [],
+            'val_loss': [],
+            'val_metrics': [],
             'best_f1': 0.0,
             'optimal_threshold': 0.5
         }
+
+        # Early stopping state
+        self.best_val_f1 = 0.0
+        self.epochs_without_improvement = 0
+        self.best_model_state = None
 
     def mean_pooling(self, model_output, attention_mask):
         """Mean pooling to get sentence embeddings."""
@@ -275,6 +288,48 @@ class MiniLMLoRATrainer:
 
         avg_loss = total_loss / (len(dataloader) // self.gradient_accumulation_steps)
         return avg_loss
+
+    def compute_validation_loss(self, dataloader) -> float:
+        """
+        Compute validation loss for early stopping.
+
+        Args:
+            dataloader: DataLoader for validation
+
+        Returns:
+            Average validation loss
+        """
+        self.model.eval()
+        total_loss = 0.0
+        num_batches = 0
+
+        with torch.no_grad():
+            for batch in tqdm(dataloader, desc="Computing val loss", leave=False):
+                q1_input_ids = batch['q1_input_ids'].to(self.device)
+                q1_attention_mask = batch['q1_attention_mask'].to(self.device)
+                q2_input_ids = batch['q2_input_ids'].to(self.device)
+                q2_attention_mask = batch['q2_attention_mask'].to(self.device)
+                labels = batch['label'].to(self.device)
+
+                # OPTIMIZATION: Batch both questions for single forward pass
+                batch_size = q1_input_ids.size(0)
+                combined_input_ids = torch.cat([q1_input_ids, q2_input_ids], dim=0)
+                combined_attention_mask = torch.cat([q1_attention_mask, q2_attention_mask], dim=0)
+
+                combined_embeddings = self.encode(combined_input_ids, combined_attention_mask)
+                q1_embeddings = combined_embeddings[:batch_size]
+                q2_embeddings = combined_embeddings[batch_size:]
+
+                # Convert labels for CosineEmbeddingLoss
+                cos_labels = torch.where(labels > 0.5,
+                                        torch.ones_like(labels),
+                                        -torch.ones_like(labels))
+
+                loss = self.criterion(q1_embeddings, q2_embeddings, cos_labels)
+                total_loss += loss.item()
+                num_batches += 1
+
+        return total_loss / num_batches if num_batches > 0 else float('inf')
 
     def quick_evaluate(self, dataloader, threshold: float = 0.5) -> Dict[str, float]:
         """
@@ -394,18 +449,19 @@ class MiniLMLoRATrainer:
 
         return best_threshold, metrics
 
-    def train(self, train_csv: str):
+    def train(self, train_csv: str, val_csv: Optional[str] = None):
         """
-        Train the model.
+        Train the model with optional early stopping.
 
         Args:
             train_csv: Path to training CSV file
+            val_csv: Path to validation CSV file (optional, for early stopping)
         """
         print("="*60)
         print("Starting LoRA Fine-tuning")
         print("="*60)
 
-        # Load dataset
+        # Load training dataset
         train_dataset = QuestionPairDataset(train_csv, self.tokenizer)
         train_dataloader = DataLoader(
             train_dataset,
@@ -415,6 +471,23 @@ class MiniLMLoRATrainer:
             pin_memory=False,  # MPS doesn't benefit from pinned memory
             persistent_workers=True  # Keep workers alive between epochs
         )
+
+        # Load validation dataset if provided
+        val_dataloader = None
+        if val_csv:
+            print(f"\nValidation data provided: {val_csv}")
+            val_dataset = QuestionPairDataset(val_csv, self.tokenizer)
+            val_dataloader = DataLoader(
+                val_dataset,
+                batch_size=self.batch_size,
+                shuffle=False,
+                num_workers=2,
+                pin_memory=False,
+                persistent_workers=True
+            )
+            print(f"Early stopping enabled: patience={self.patience}, min_delta={self.min_delta}")
+        else:
+            print("\nNo validation data provided. Early stopping disabled.")
 
         print(f"\nTraining Configuration:")
         print(f"  Learning Rate: {self.learning_rate:.2e}")
@@ -432,25 +505,81 @@ class MiniLMLoRATrainer:
             # Quick evaluation with fixed threshold (much faster, for monitoring)
             metrics = self.quick_evaluate(train_dataloader, threshold=0.5)
 
-            print(f"\nQuick Evaluation (fixed threshold=0.5):")
+            print(f"\nTraining Evaluation (fixed threshold=0.5):")
             print(f"  F1 Score:      {metrics['f1']:.4f}")
             print(f"  Accuracy:      {metrics['accuracy']:.4f}")
             print(f"  Precision:     {metrics['precision']:.4f}")
             print(f"  Recall:        {metrics['recall']:.4f}")
             print(f"  Avg Similarity: {metrics['avg_similarity']:.4f} ± {metrics['similarity_std']:.4f}")
 
-            # Save history
+            # Save training history
             self.history['train_loss'].append(train_loss)
             self.history['train_metrics'].append(metrics)
+
+            # Validation and early stopping
+            if val_dataloader:
+                # Compute validation loss
+                val_loss = self.compute_validation_loss(val_dataloader)
+
+                # Quick validation metrics
+                val_metrics = self.quick_evaluate(val_dataloader, threshold=0.5)
+                val_f1 = val_metrics['f1']
+
+                print(f"\nValidation Results:")
+                print(f"  Loss:          {val_loss:.4f}")
+                print(f"  F1 Score:      {val_f1:.4f}")
+                print(f"  Accuracy:      {val_metrics['accuracy']:.4f}")
+                print(f"  Precision:     {val_metrics['precision']:.4f}")
+                print(f"  Recall:        {val_metrics['recall']:.4f}")
+
+                # Save validation history
+                self.history['val_loss'].append(val_loss)
+                self.history['val_metrics'].append(val_metrics)
+
+                # Check for improvement
+                improvement = val_f1 - self.best_val_f1
+                if improvement > self.min_delta:
+                    print(f"\n  ✓ Validation F1 improved by {improvement:.4f} (new best: {val_f1:.4f})")
+                    self.best_val_f1 = val_f1
+                    self.epochs_without_improvement = 0
+
+                    # Save best model state
+                    self.best_model_state = {
+                        'epoch': epoch + 1,
+                        'model_state_dict': self.model.state_dict(),
+                        'optimizer_state_dict': self.optimizer.state_dict(),
+                        'val_f1': val_f1,
+                        'val_loss': val_loss,
+                        'val_metrics': val_metrics
+                    }
+                    print(f"  ✓ Best model checkpoint saved")
+                else:
+                    self.epochs_without_improvement += 1
+                    print(f"\n  × No improvement for {self.epochs_without_improvement} epoch(s)")
+                    print(f"    Best F1: {self.best_val_f1:.4f} | Current F1: {val_f1:.4f}")
+
+                # Early stopping check
+                if self.epochs_without_improvement >= self.patience:
+                    print(f"\n{'='*60}")
+                    print(f"Early stopping triggered after {epoch + 1} epochs")
+                    print(f"Best validation F1: {self.best_val_f1:.4f} at epoch {self.best_model_state['epoch']}")
+                    print(f"{'='*60}")
+
+                    # Restore best model
+                    if self.best_model_state:
+                        self.model.load_state_dict(self.best_model_state['model_state_dict'])
+                        print("Restored best model weights")
+                    break
 
         # Final evaluation with optimal threshold search
         print("\n" + "="*60)
         print("Training Complete! Running final evaluation with threshold optimization...")
         print("="*60)
 
+        # Evaluate on training set for final model
         optimal_threshold, final_metrics = self.evaluate(train_dataloader)
 
-        print(f"\nFinal Evaluation Results:")
+        print(f"\nFinal Evaluation Results (on training set):")
         print(f"  Optimal Threshold: {optimal_threshold:.4f}")
         print(f"  F1 Score:  {final_metrics['f1']:.4f}")
         print(f"  Accuracy:  {final_metrics['accuracy']:.4f}")
@@ -465,13 +594,44 @@ class MiniLMLoRATrainer:
         print(f"\nSaving final model to {final_model_path}")
         self.save_model(final_model_path, optimal_threshold, final_metrics)
 
+        # Save best model if we have one from early stopping
+        if self.best_model_state:
+            best_model_path = os.path.join(self.output_dir, 'best_model')
+            print(f"\nSaving best model (from epoch {self.best_model_state['epoch']}) to {best_model_path}")
+
+            # Temporarily load best model state to save it
+            current_state = self.model.state_dict()
+            self.model.load_state_dict(self.best_model_state['model_state_dict'])
+
+            # Evaluate best model with threshold optimization
+            best_optimal_threshold, best_eval_metrics = self.evaluate(
+                val_dataloader if val_dataloader else train_dataloader
+            )
+
+            # Save best model
+            self.save_model(best_model_path, best_optimal_threshold, best_eval_metrics)
+
+            # Restore current model state
+            self.model.load_state_dict(current_state)
+
+            print(f"\nBest model saved with:")
+            print(f"  Validation F1: {self.best_model_state['val_f1']:.4f}")
+            print(f"  From epoch: {self.best_model_state['epoch']}")
+
         # Print summary
         print("\n" + "="*60)
         print("Model Training and Evaluation Complete!")
         print("="*60)
-        print(f"Final F1 Score: {self.history['best_f1']:.4f}")
-        print(f"Optimal Threshold: {self.history['optimal_threshold']:.4f}")
-        print(f"Model saved to: {final_model_path}")
+        if self.best_model_state:
+            print(f"Best Model (early stopping):")
+            print(f"  Epoch: {self.best_model_state['epoch']}")
+            print(f"  Validation F1: {self.best_model_state['val_f1']:.4f}")
+            print(f"  Path: {os.path.join(self.output_dir, 'best_model')}")
+            print()
+        print(f"Final Model:")
+        print(f"  F1 Score: {self.history['best_f1']:.4f}")
+        print(f"  Optimal Threshold: {self.history['optimal_threshold']:.4f}")
+        print(f"  Path: {final_model_path}")
 
     def save_model(self, save_path: str, threshold: float, metrics: Dict[str, Any]):
         """Save the model and metadata."""
@@ -517,11 +677,18 @@ def main():
     current_dir = os.path.dirname(os.path.abspath(__file__))
     project_root = os.path.dirname(current_dir)
     train_csv = os.path.join(project_root, 'data', 'small', 'questions_train.csv')
+    val_csv = os.path.join(project_root, 'data', 'small', 'questions_val.csv')
 
     # Check if training data exists
     if not os.path.exists(train_csv):
         print(f"Error: Training data not found at {train_csv}")
         return
+
+    # Check if validation data exists
+    if not os.path.exists(val_csv):
+        print(f"Warning: Validation data not found at {val_csv}")
+        print("Training will proceed without early stopping.")
+        val_csv = None
 
     # Initialize trainer
     trainer = MiniLMLoRATrainer(
@@ -533,11 +700,13 @@ def main():
         batch_size=64,       # Increased from 32 to 64 for better GPU utilization
         num_epochs=5,
         gradient_accumulation_steps=1,
-        output_dir='models'
+        output_dir='models',
+        patience=3,          # Early stopping: wait 3 epochs for improvement
+        min_delta=0.0001     # Minimum improvement threshold
     )
 
-    # Train
-    trainer.train(train_csv)
+    # Train with validation data if available
+    trainer.train(train_csv, val_csv)
 
 
 if __name__ == "__main__":
