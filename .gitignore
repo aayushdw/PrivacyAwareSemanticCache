@@ -1,5 +1,6 @@
 .env
 GEMINI.md
+CLAUDE.md
 *.csv
 data/chroma_db/
 data/chroma_db_test/
@@ -8,3 +9,4 @@ __pycache__/
 *.pyo
 lora_training_pipeline/models/
 .venv/
+.vscode/
