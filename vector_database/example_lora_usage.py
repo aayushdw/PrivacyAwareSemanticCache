@@ -316,6 +316,118 @@ def example_batch_queries():
                 print(f"  Would need to query LLM for this question")
 
 
+def example_embedding_similarity_comparison():
+    """Example: Compare ChromaDB distance vs direct embedding similarity computation."""
+    print("\n" + "="*70)
+    print("EXAMPLE 3: Embedding Similarity Comparison - Direct Similarity Computation")
+    print("="*70 + "\n")
+
+    # Get path to LoRA model
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    project_root = os.path.dirname(current_dir)
+    lora_model_path = os.path.join(project_root, 'lora_training_pipeline', 'models', 'best_model')
+
+    # Initialize components
+    embedder = LoRAEmbeddingEngine(model_path=lora_model_path)
+    vector_store = ChromaVectorStore(
+        collection_name="lora_similarity_demo",
+        persist_directory="./data/chroma_db_lora",
+        embedding_dimension=embedder.get_embedding_dimension()
+    )
+
+    # Sample FAQ queries and responses
+    faq_queries = [
+        "How do I change my email address?",
+        "How can I reset my account password?",
+        "How do I delete my account?",
+        "What are the payment methods accepted?",
+        "How do I contact customer support?",
+    ]
+
+    faq_responses = [
+        "To change your email, go to Settings > Profile > Email and enter your new email.",
+        "To reset your password, go to Settings > Security > Reset Password.",
+        "To delete your account, go to Settings > Account > Delete Account.",
+        "We accept credit cards, debit cards, PayPal, and bank transfers.",
+        "You can contact support at support@example.com or call 1-800-SUPPORT.",
+    ]
+
+    # Build cache
+    print(f"Building semantic cache with {len(faq_queries)} FAQ entries...")
+    embeddings = embedder.encode_batch(faq_queries)
+    vector_store.add_embeddings_batch(
+        embeddings=embeddings,
+        texts=faq_queries,
+        llm_responses=faq_responses
+    )
+    print(f"Cache built with {len(faq_queries)} entries\n")
+
+    # Test queries
+    test_queries = [
+        "email change process",
+        "password reset steps",
+        "how to cancel my subscription",  # Not in cache
+    ]
+
+    optimal_similarity = embedder.get_optimal_threshold()
+    optimal_distance = embedder.get_optimal_distance_threshold()
+
+    print(f"Optimal similarity threshold (from training): {optimal_similarity:.4f}")
+    print(f"Optimal distance threshold (for ChromaDB):    {optimal_distance:.4f}")
+    print("\nComparing ChromaDB distance vs direct embedding similarity:")
+    print("-" * 70)
+
+    for query in test_queries:
+        print(f"\nUser query: '{query}'")
+
+        # Get query embedding
+        query_embedding = embedder.encode(query)
+
+        # Get closest match from ChromaDB
+        results = vector_store.query(query_embedding=query_embedding, n_results=1)
+
+        if results['ids']:
+            matched_text = results['documents'][0]
+            chromadb_distance = results['distances'][0]
+
+            # Compute similarity using embedding model directly
+            # Get the embedding of the matched document from cache
+            matched_embedding = embedder.encode(matched_text)
+
+            # Compute cosine similarity (dot product of normalized embeddings)
+            computed_similarity = np.dot(query_embedding, matched_embedding)
+
+            # Convert to distance for comparison
+            computed_distance = 1.0 - computed_similarity
+
+            # Classify using computed similarity
+            is_hit_computed = computed_similarity >= optimal_similarity
+            is_hit_chromadb = chromadb_distance < optimal_distance
+
+            print(f"\n  Matched document: '{matched_text}'")
+            print(f"\n  ChromaDB Results:")
+            print(f"    Distance: {chromadb_distance:.4f}")
+            print(f"    Classification: {'✓ CACHE HIT' if is_hit_chromadb else '✗ CACHE MISS'}")
+
+            print(f"\n  Direct Embedding Similarity:")
+            print(f"    Cosine similarity: {computed_similarity:.4f}")
+            print(f"    Equivalent distance: {computed_distance:.4f}")
+            print(f"    Classification: {'✓ CACHE HIT' if is_hit_computed else '✗ CACHE MISS'}")
+            print(f"    Above threshold? {computed_similarity:.4f} >= {optimal_similarity:.4f}: {is_hit_computed}")
+
+            # Show response if it's a cache hit
+            if is_hit_computed:
+                print(f"\n  Cached response: {results['metadatas'][0].get('llm_response', 'N/A')}")
+            else:
+                print(f"\n  → Would need to query LLM for this question")
+
+            # Verify consistency
+            if is_hit_computed != is_hit_chromadb:
+                print(f"\n  ⚠ WARNING: Classification mismatch between methods!")
+            else:
+                print(f"\n  ✓ Both methods agree on classification")
+
+
 def main():
     """Run all examples."""
     print("\n" + "="*70)
@@ -337,6 +449,7 @@ def main():
     try:
         example_single_query()
         example_batch_queries()
+        example_embedding_similarity_comparison()
 
         print("\n" + "="*70)
         print("All examples completed successfully!")

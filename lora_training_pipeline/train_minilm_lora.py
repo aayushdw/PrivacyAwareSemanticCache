@@ -209,7 +209,7 @@ class MiniLMLoRATrainer:
         }
 
         # Early stopping state
-        self.best_val_f1 = 0.0
+        self.best_val_loss = float('inf')
         self.epochs_without_improvement = 0
         self.best_model_state = None
 
@@ -521,13 +521,13 @@ class MiniLMLoRATrainer:
                 # Compute validation loss
                 val_loss = self.compute_validation_loss(val_dataloader)
 
-                # Quick validation metrics
+                # Quick validation metrics (for monitoring only, not used for early stopping)
                 val_metrics = self.quick_evaluate(val_dataloader, threshold=0.5)
                 val_f1 = val_metrics['f1']
 
                 print(f"\nValidation Results:")
-                print(f"  Loss:          {val_loss:.4f}")
-                print(f"  F1 Score:      {val_f1:.4f}")
+                print(f"  Loss:          {val_loss:.4f} (used for early stopping)")
+                print(f"  F1 Score:      {val_f1:.4f} (monitoring only, fixed threshold=0.5)")
                 print(f"  Accuracy:      {val_metrics['accuracy']:.4f}")
                 print(f"  Precision:     {val_metrics['precision']:.4f}")
                 print(f"  Recall:        {val_metrics['recall']:.4f}")
@@ -536,11 +536,11 @@ class MiniLMLoRATrainer:
                 self.history['val_loss'].append(val_loss)
                 self.history['val_metrics'].append(val_metrics)
 
-                # Check for improvement
-                improvement = val_f1 - self.best_val_f1
+                # Check for improvement (lower loss is better)
+                improvement = self.best_val_loss - val_loss
                 if improvement > self.min_delta:
-                    print(f"\n  ✓ Validation F1 improved by {improvement:.4f} (new best: {val_f1:.4f})")
-                    self.best_val_f1 = val_f1
+                    print(f"\n  ✓ Validation loss improved by {improvement:.4f} (new best: {val_loss:.4f})")
+                    self.best_val_loss = val_loss
                     self.epochs_without_improvement = 0
 
                     # Save best model state
@@ -556,13 +556,13 @@ class MiniLMLoRATrainer:
                 else:
                     self.epochs_without_improvement += 1
                     print(f"\n  × No improvement for {self.epochs_without_improvement} epoch(s)")
-                    print(f"    Best F1: {self.best_val_f1:.4f} | Current F1: {val_f1:.4f}")
+                    print(f"    Best Loss: {self.best_val_loss:.4f} | Current Loss: {val_loss:.4f}")
 
                 # Early stopping check
                 if self.epochs_without_improvement >= self.patience:
                     print(f"\n{'='*60}")
                     print(f"Early stopping triggered after {epoch + 1} epochs")
-                    print(f"Best validation F1: {self.best_val_f1:.4f} at epoch {self.best_model_state['epoch']}")
+                    print(f"Best validation loss: {self.best_val_loss:.4f} at epoch {self.best_model_state['epoch']}")
                     print(f"{'='*60}")
 
                     # Restore best model
@@ -623,9 +623,10 @@ class MiniLMLoRATrainer:
         print("Model Training and Evaluation Complete!")
         print("="*60)
         if self.best_model_state:
-            print(f"Best Model (early stopping):")
+            print(f"Best Model (early stopping based on validation loss):")
             print(f"  Epoch: {self.best_model_state['epoch']}")
-            print(f"  Validation F1: {self.best_model_state['val_f1']:.4f}")
+            print(f"  Validation Loss: {self.best_model_state['val_loss']:.4f}")
+            print(f"  Validation F1: {self.best_model_state['val_f1']:.4f} (at fixed threshold)")
             print(f"  Path: {os.path.join(self.output_dir, 'best_model')}")
             print()
         print(f"Final Model:")
@@ -676,8 +677,8 @@ def main():
     # Setup paths
     current_dir = os.path.dirname(os.path.abspath(__file__))
     project_root = os.path.dirname(current_dir)
-    train_csv = os.path.join(project_root, 'data', 'small', 'questions_train.csv')
-    val_csv = os.path.join(project_root, 'data', 'small', 'questions_val.csv')
+    train_csv = os.path.join(project_root, 'data', 'medium', 'questions_train.csv')
+    val_csv = os.path.join(project_root, 'data', 'medium', 'questions_val.csv')
 
     # Check if training data exists
     if not os.path.exists(train_csv):
@@ -698,7 +699,7 @@ def main():
         lora_dropout=0.1,
         learning_rate=2e-4,
         batch_size=64,       # Increased from 32 to 64 for better GPU utilization
-        num_epochs=5,
+        num_epochs=10,
         gradient_accumulation_steps=1,
         output_dir='models',
         patience=3,          # Early stopping: wait 3 epochs for improvement

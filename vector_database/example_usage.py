@@ -25,7 +25,7 @@ class LoRAEmbeddingEngine:
         Initialize the LoRA embedding engine.
 
         Args:
-            model_path: Path to the LoRA model directory (e.g., 'lora_training_pipeline/models/final_model')
+            model_path: Path to the LoRA model directory (e.g., 'lora_training_pipeline/models/best_model')
             device: Device to use ('cuda', 'mps', 'cpu', or None for auto-detect)
         """
         # Import dependencies
@@ -438,7 +438,7 @@ def example_lora_single_embedding():
     # Get path to LoRA model
     current_dir = os.path.dirname(os.path.abspath(__file__))
     project_root = os.path.dirname(current_dir)
-    lora_model_path = os.path.join(project_root, 'lora_training_pipeline', 'models', 'final_model')
+    lora_model_path = os.path.join(project_root, 'lora_training_pipeline', 'models', 'best_model')
 
     # Check if model exists
     if not os.path.exists(lora_model_path):
@@ -511,7 +511,7 @@ def example_lora_batch_embeddings():
     # Get path to LoRA model
     current_dir = os.path.dirname(os.path.abspath(__file__))
     project_root = os.path.dirname(current_dir)
-    lora_model_path = os.path.join(project_root, 'lora_training_pipeline', 'models', 'final_model')
+    lora_model_path = os.path.join(project_root, 'lora_training_pipeline', 'models', 'best_model')
 
     # Check if model exists
     if not os.path.exists(lora_model_path):
@@ -599,7 +599,7 @@ def example_lora_comparison():
     # Get path to LoRA model
     current_dir = os.path.dirname(os.path.abspath(__file__))
     project_root = os.path.dirname(current_dir)
-    lora_model_path = os.path.join(project_root, 'lora_training_pipeline', 'models', 'final_model')
+    lora_model_path = os.path.join(project_root, 'lora_training_pipeline', 'models', 'best_model')
 
     # Check if model exists
     if not os.path.exists(lora_model_path):
