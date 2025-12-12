@@ -1,6 +1,9 @@
 # Environment and secrets
 .env
 
+# Dataset
+*.csv
+
 # Documentation (if generated)
 GEMINI.md
 CLAUDE.md
