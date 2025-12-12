@@ -1,14 +1,19 @@
+# Environment and secrets
 .env
+
+# Documentation (if generated)
 GEMINI.md
 CLAUDE.md
-*.csv
-data/chroma_db/
-data/chroma_db_test/
+
+# Python
 __pycache__/
 *.pyc
 *.pyo
-lora_training_pipeline/models/
+
+# Virtual environment
 .venv/
+
+# IDE
 .vscode/
 
 # macOS

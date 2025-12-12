@@ -1,0 +1,14 @@
+{
+  "model_name": "sentence-transformers/all-MiniLM-L6-v2",
+  "lora_r": 16,
+  "lora_alpha": 32,
+  "optimal_threshold": 0.4454187750816345,
+  "metrics": {
+    "threshold": 0.4454187750816345,
+    "f1": 0.7485530014883414,
+    "accuracy": 0.7972599086636222,
+    "precision": 0.6970816970816971,
+    "recall": 0.808231407910008
+  },
+  "training_date": "2025-11-13T03:26:07.083185"
+}

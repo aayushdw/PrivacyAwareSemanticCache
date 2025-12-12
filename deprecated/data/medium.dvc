@@ -1,0 +1,6 @@
+outs:
+- md5: c3e18af418dcb6d9c9f592f8e1e64dc7.dir
+  size: 14645576
+  nfiles: 3
+  hash: md5
+  path: medium
