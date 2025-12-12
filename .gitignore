@@ -10,3 +10,14 @@ __pycache__/
 lora_training_pipeline/models/
 .venv/
 .vscode/
+
+# macOS
+.DS_Store
+
+# MLflow
+mlflow_data/
+**/mlflow_data/
+
+# Prefect
+prefect_data/
+**/prefect_data/
