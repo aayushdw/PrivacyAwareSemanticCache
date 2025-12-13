@@ -2,11 +2,14 @@
 
 A high-performance, asynchronous pipeline for generating synthetic datasets using Google Gemini models. This tool mimics real-world user intent variations to robustly train semantic search and cache systems.
 
-## Overview
+## Overview & Data Strategy
 
-The pipeline transforms a seed list of questions into a rich dataset by generating two variants for every input:
-1.  **Semantically Similar Questions:** Different phrasing, same intent (Positive pairs for contrastive learning).
-2.  **Different Intent Questions:** Similar keywords/topic, distinct meaning (Hard negatives).
+High-quality semantic search requires more than just keyword matching. This pipeline automates the creation of a sophisticated training dataset by generating specific semantic variants for each seed question.
+
+| Data Type | Definition | Architectural Purpose |
+| :--- | :--- | :--- |
+| **Similar Intent** | Different phrasing, same meaning. | **Positive Pairs**: Teaches the model that "How much is this?" and "What's the price?" are identical requests, improving recall. |
+| **Different Intent** | Shared keywords, different meaning. | **Hard Negatives**: Teaches the model to distinguish subtler nuances (e.g., "Install python" vs "Uninstall python"), reducing false positives. |
 
 It employs a **Map-Reduce** style architecture orchestrated by **LangGraph**, utilizing true parallelism across multiple model workers to maximize throughput while adhering to strict rate limits.
 
@@ -25,13 +28,13 @@ graph TD
     classDef external fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px;
 
     InputFile[(Input CSV)]:::storage --> Load[Load Questions]:::process
-    Load --> Distribute[Distribute Workload\nRound-Robin]:::process
+    Load --> Distribute[Distribute Workload<br/>Round-Robin]:::process
     
     subgraph ExecutionPlane [Parallel Execution Plane]
         direction TB
-        Distribute --> W1[Worker 1\nModel: gemma-2-9b]:::process
-        Distribute --> W2[Worker 2\nModel: gemma-2-27b]:::process
-        Distribute --> WN[Worker N...]:::process
+        Distribute --> W1[Worker 1<br/>Model: gemma-2-1b]:::process
+        Distribute --> W2[Worker 2<br/>Model: gemma-2-12b]:::process
+        Distribute --> WN[Worker N<br/>Model: gemma-2-27b]:::process
     end
 
     subgraph ExternalServices [External Services]
@@ -52,49 +55,33 @@ graph TD
 
 ---
 
-## Detailed Execution Flow
+## Logical Flow
 
 ### 1. The Worker Lifecycle
-Each worker operates independently on its assigned slice of the dataset. It manages its own rate limiting (Clock-based Throttling) and concurrency.
+The architecture isolates execution into independent workers. Each worker manages its own state, ensuring that failures or delays in one model do not impact the overall pipeline thoughtput.
 
 ```mermaid
 sequenceDiagram
     participant O as Orchestrator
     participant W as Worker
-    participant T as Throttler
     participant G as Gemini API
-    participant FS as File System
+    participant DB as Storage
 
-    O->>W: Assign Batch [Q1, Q4, Q7...]
+    O->>W: Assign Batch of Questions
     
-    loop For Each Question Task
-        W->>T: Check Last Call Time
-        alt limits not met
-            T-->>W: Sleep(delta)
+    loop Process Question
+        W->>W: Distributed Rate Limit Check
+        
+        par Parallel Generation
+            W->>G: Generate Similar Intent
+            W->>G: Generate Different Intent
         end
         
-        par Generate Parallel
-            W->>G: Generate Similar (Async)
-            W->>G: Generate Different (Async)
-        end
-        
-        G-->>W: Result (Similar)
-        G-->>W: Result (Different)
-        
-        W->>W: Aggregate Results
-        
-        critical Thread-Safe Write
-            W->>FS: Append to Output CSV
-        end
-        
-        alt Error Occurred
-            W->>FS: Log Failed ID
-        else Success
-            W->>W: Update Local Stats
-        end
+        G-->>W: Return Synthetic Data
+        W->>DB: Persist Results
     end
     
-    W->>O: Return Final Worker Stats
+    W->>O: Report Completion Stats
 ```
 
 ### 2. Concurrency Model
@@ -102,46 +89,12 @@ sequenceDiagram
 The pipeline utilizes a hybrid concurrency model to balance I/O binding and API limits:
 
 *   **Process Level**: The main Python process runs the LangGraph orchestrator.
-*   **Worker Level (Multi-Tasking)**: Multiple `ModelWorker` instances run concurrently using `asyncio`. While Python is single-threaded, `asyncio` allows us to interleave network requests waiting times effectively.
+*   **Worker Level (Multi-Tasking)**: Multiple `ModelWorker` instances run concurrently using `asyncio`.
 *   **Request Level (Fan-Out)**: For every single question, we launch **2 parallel LLM requests** (one for "similar", one for "different"). This doubles the effective IOPS per worker.
 
-### 3. Clock-Based Throttling
-Unlike token-bucket algorithms which can be complex to sync across async tasks, we use a robust **Time-Delta Throttling** mechanism.
+### 3. Distributed Throttling
+Unlike traditional centralized rate limiters, this architecture uses a simplified Clock-Based Throttling within each worker.
 
 $$ \large T_{wait} = \max(0, \frac{60}{RPM_{limit}} - (T_{now} - T_{last})) $$
 
-This ensures that even with network jitter, a single worker **mathematically cannot** exceed its assigned Requests Per Minute (RPM), providing safe compliance with API quotas.
-
----
-
-## Configuration & Usage
-
-Configuration is managed in `config.py`.
-
-| Parameter | Description | Impact |
-| :--- | :--- | :--- |
-| `model_list` | List of Gemini model versions to use. | **Scalability**: Adding models linearly increases total system throughput. |
-| `llm_rpm_limit` | Max requests per minute **per model**. | **Speed**: Higher limits = faster completion, lower limits = safer from 429 errors. |
-| `similar_count` | Number of positive examples per question. | **Dataset Size**: Controls the "width" of the positive dataset. |
-| `different_count` | Number of hard negatives per question. | **Dataset Size**: Controls the "width" of the negative dataset. |
-
-### Running the Pipeline
-```bash
-# Ensure you are in the project root
-python -m data.synthetic_data_generator.main
-```
-
-### Data output Format
-The output CSV is generated in real-time. Loops are protected by a `threading.Lock` to ensure row integrity.
-
-```csv
-id,original_question,generated_question,is_semantically_similar
-101_0,What is embeddings?,Explain vector embeddings.,True
-101_1,What is embeddings?,How to use Word2Vec?,False
-```
-
-## 🐛 Error Handling & Recovery
-
-*   **Granular Failure**: If a specific question fails (e.g., safety filter block), only that question is dropped. The pipeline **does not stop**.
-*   **Logging**: Failed Question IDs are written to `logs/failed_questions.log`.
-*   **Recovery**: You can easily inspect the log, create a new CSV with just those IDs, and re-run the pipeline to retry.
+This ensures that every model stays mathematically within its API quotas (Requests Per Minute) regardless of network latency or jitter, without the need for complex locking mechanisms.
