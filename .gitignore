@@ -29,3 +29,8 @@ mlflow_data/
 # Prefect
 prefect_data/
 **/prefect_data/
+
+# Logs
+*.log
+logs/
+**/logs/
