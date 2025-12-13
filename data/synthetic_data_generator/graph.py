@@ -58,10 +58,10 @@ def create_run_parallel_workers_node(config: PipelineConfig):
 
     async def run_workers_async(assignments: Dict[str, List[QuestionTask]]) -> List[WorkerResult]:
         workers = []
-        for model_name, tasks in assignments.items():
+        for position, (model_name, tasks) in enumerate(assignments.items()):
             if tasks:  # Only create worker if there are tasks
                 worker = ModelWorker(model_name, config)
-                workers.append(worker.process_all(tasks))
+                workers.append(worker.process_all(tasks, position=position))
 
         results = await asyncio.gather(*workers)
         return list(results)

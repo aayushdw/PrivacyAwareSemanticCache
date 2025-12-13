@@ -1,141 +1,147 @@
 # Synthetic Data Generator
 
-A LangGraph-based pipeline for generating synthetic question data using Google Gemini models.
+A high-performance, asynchronous pipeline for generating synthetic datasets using Google Gemini models. This tool mimics real-world user intent variations to robustly train semantic search and cache systems.
 
 ## Overview
 
-This pipeline takes a dataset of questions and generates two types of synthetic data for each input question:
+The pipeline transforms a seed list of questions into a rich dataset by generating two variants for every input:
+1.  **Semantically Similar Questions:** Different phrasing, same intent (Positive pairs for contrastive learning).
+2.  **Different Intent Questions:** Similar keywords/topic, distinct meaning (Hard negatives).
 
-1. **Semantically Similar Questions** (configurable count): Questions with the same intent that would expect the same answer
-2. **Different Intent Questions** (configurable count): Questions that look similar (share keywords/topic) but have different meaning
+It employs a **Map-Reduce** style architecture orchestrated by **LangGraph**, utilizing true parallelism across multiple model workers to maximize throughput while adhering to strict rate limits.
 
-## Architecture
+---
 
-### Pipeline Flow
+## System Architecture
+
+The system is built on a distributed worker model managed by a central graph orchestrator.
+
+### High-Level Components
 
 ```mermaid
 graph TD
-    subgraph Main["LangGraph Orchestrator"]
-        A[START] --> B[load_questions]
-        B --> C[distribute_questions]
-        C --> D[run_parallel_workers]
-        D --> E[aggregate_results]
-        E --> F[END]
+    classDef storage fill:#f9f,stroke:#333,stroke-width:2px;
+    classDef process fill:#e1f5fe,stroke:#01579b,stroke-width:2px;
+    classDef external fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px;
+
+    InputFile[(Input CSV)]:::storage --> Load[Load Questions]:::process
+    Load --> Distribute[Distribute Workload\nRound-Robin]:::process
+    
+    subgraph ExecutionPlane [Parallel Execution Plane]
+        direction TB
+        Distribute --> W1[Worker 1\nModel: gemma-2-9b]:::process
+        Distribute --> W2[Worker 2\nModel: gemma-2-27b]:::process
+        Distribute --> WN[Worker N...]:::process
     end
 
-    subgraph Workers["Parallel Model Workers"]
-        D --> W1[Model 1 Worker]
-        D --> W2[Model 2 Worker]
-        D --> W3[Model N Worker]
+    subgraph ExternalServices [External Services]
+        W1 -.->|Async API Calls| Gemini[Google Gemini API]:::external
+        W2 -.->|Async API Calls| Gemini
+        WN -.->|Async API Calls| Gemini
     end
 
-    subgraph Processing["Per-Question Processing"]
-        W1 --> P1[generate_similar]
-        W1 --> P2[generate_different]
-        P1 --> R[Write Results]
-        P2 --> R
-    end
+    W1 -->|Thread-Safe Write| Output[(Output CSV)]:::storage
+    W2 -->|Thread-Safe Write| Output
+    WN -->|Thread-Safe Write| Output
 
-    R --> |thread-safe| O[(Output CSV)]
-    W1 --> |on failure| L[(Error Log)]
+    W1 -.->|Log Failures| ErrorLogs[(Error Logs)]:::storage
+    
+    ExecutionPlane --> Aggregate[Aggregate Stats]:::process
+    Aggregate --> End((End))
 ```
 
-### Parallel Execution Model
+---
+
+## Detailed Execution Flow
+
+### 1. The Worker Lifecycle
+Each worker operates independently on its assigned slice of the dataset. It manages its own rate limiting (Clock-based Throttling) and concurrency.
 
 ```mermaid
-flowchart TB
-    subgraph Distribution["Question Distribution (Round-Robin)"]
-        Q1[Question 1] --> M1
-        Q2[Question 2] --> M2
-        Q3[Question 3] --> M1
-        Q4[Question 4] --> M2
+sequenceDiagram
+    participant O as Orchestrator
+    participant W as Worker
+    participant T as Throttler
+    participant G as Gemini API
+    participant FS as File System
+
+    O->>W: Assign Batch [Q1, Q4, Q7...]
+    
+    loop For Each Question Task
+        W->>T: Check Last Call Time
+        alt limits not met
+            T-->>W: Sleep(delta)
+        end
+        
+        par Generate Parallel
+            W->>G: Generate Similar (Async)
+            W->>G: Generate Different (Async)
+        end
+        
+        G-->>W: Result (Similar)
+        G-->>W: Result (Different)
+        
+        W->>W: Aggregate Results
+        
+        critical Thread-Safe Write
+            W->>FS: Append to Output CSV
+        end
+        
+        alt Error Occurred
+            W->>FS: Log Failed ID
+        else Success
+            W->>W: Update Local Stats
+        end
     end
-
-    subgraph M1["Model 1 Worker"]
-        direction TB
-        M1A[Process Q1] --> M1B[Process Q3]
-        M1C[Clock Throttle: wait between questions]
-    end
-
-    subgraph M2["Model 2 Worker"]
-        direction TB
-        M2A[Process Q2] --> M2B[Process Q4]
-        M2C[Clock Throttle: wait between questions]
-    end
-
-    M1 -.->|parallel| M2
+    
+    W->>O: Return Final Worker Stats
 ```
 
-## Key Design Decisions
+### 2. Concurrency Model
 
-### True Parallel Execution
-All configured models run concurrently. Questions are distributed upfront using round-robin, and each model processes its assigned questions independently.
+The pipeline utilizes a hybrid concurrency model to balance I/O binding and API limits:
 
-### Clock-Based Throttling
+*   **Process Level**: The main Python process runs the LangGraph orchestrator.
+*   **Worker Level (Multi-Tasking)**: Multiple `ModelWorker` instances run concurrently using `asyncio`. While Python is single-threaded, `asyncio` allows us to interleave network requests waiting times effectively.
+*   **Request Level (Fan-Out)**: For every single question, we launch **2 parallel LLM requests** (one for "similar", one for "different"). This doubles the effective IOPS per worker.
 
-We chose a simple clock-based approach over traditional rate limiting (e.g., token bucket algorithm) for the following reasons:
+### 3. Clock-Based Throttling
+Unlike token-bucket algorithms which can be complex to sync across async tasks, we use a robust **Time-Delta Throttling** mechanism.
 
-**Why not Token Bucket?**
-- Token bucket requires tracking token counts, refill rates, and timestamps
-- Needs async locks for thread-safe token acquisition
-- Adds complexity for burst handling and token recovery logic
-- Overkill when we have predictable, steady workloads
+$$ \large T_{wait} = \max(0, \frac{60}{RPM_{limit}} - (T_{now} - T_{last})) $$
 
-**Clock-Based Approach:**
-- Formula: `min_interval = 60 / RPM * 2` (accounting for 2 LLM calls per question)
-- Each worker simply tracks `last_call_time` and sleeps if the interval hasn't passed
-- Implementation is ~5 lines of code vs. a full rate limiter class
-- Guarantees we stay under RPM limits without complex state management
+This ensures that even with network jitter, a single worker **mathematically cannot** exceed its assigned Requests Per Minute (RPM), providing safe compliance with API quotas.
 
-**Example:** With RPM=30, each question requires 2 API calls, so we wait 4 seconds between questions. This ensures we never exceed 30 requests per minute per model.
+---
 
-### Concurrent Per-Question Processing
-Within each worker, the two LLM calls (similar + different) run concurrently for each question using `asyncio.gather()`.
+## Configuration & Usage
 
-### Thread-Safe File Writes
-A single `threading.Lock` is shared across all workers to prevent race conditions when writing to the output CSV.
+Configuration is managed in `config.py`.
 
-### Error Isolation
-Failures in one worker don't affect others. Failed question IDs are logged to a separate file for retry.
+| Parameter | Description | Impact |
+| :--- | :--- | :--- |
+| `model_list` | List of Gemini model versions to use. | **Scalability**: Adding models linearly increases total system throughput. |
+| `llm_rpm_limit` | Max requests per minute **per model**. | **Speed**: Higher limits = faster completion, lower limits = safer from 429 errors. |
+| `similar_count` | Number of positive examples per question. | **Dataset Size**: Controls the "width" of the positive dataset. |
+| `different_count` | Number of hard negatives per question. | **Dataset Size**: Controls the "width" of the negative dataset. |
 
-## Configuration
-
-Configuration is defined in `config.py`:
-
-| Parameter | Default | Description |
-|-----------|---------|-------------|
-| `input_file` | `data/raw/small_final_questions.csv` | Input CSV with questions |
-| `output_file` | `data/generated_data/synthetic_questions.csv` | Output CSV path |
-| `model_list` | `["gemma-3-4b-it"]` | Gemini models to use |
-| `llm_rpm_limit` | 15 | Requests per minute per model |
-| `similar_count` | 2 | Similar questions to generate |
-| `different_count` | 3 | Different intent questions to generate |
-
-## Input/Output Format
-
-**Input CSV:**
-```
-qid,question
-721163,What is an embedding problem?
-```
-
-**Output CSV:**
-```
-id,original_question,generated_question,is_semantically_similar
-721163_0,What is an embedding problem?,What does an embedding problem mean?,True
-721163_1,What is an embedding problem?,Could you explain embedding problems?,True
-721163_2,What is an embedding problem?,How do I solve embedding problems?,False
-```
-
-## Running the Pipeline
-
+### Running the Pipeline
 ```bash
+# Ensure you are in the project root
 python -m data.synthetic_data_generator.main
 ```
 
-## Error Handling
+### Data output Format
+The output CSV is generated in real-time. Loops are protected by a `threading.Lock` to ensure row integrity.
 
-Failed questions are logged to `logs/failed_questions.log` with format:
+```csv
+id,original_question,generated_question,is_semantically_similar
+101_0,What is embeddings?,Explain vector embeddings.,True
+101_1,What is embeddings?,How to use Word2Vec?,False
 ```
-timestamp,qid,error_message
-```
+
+## 🐛 Error Handling & Recovery
+
+*   **Granular Failure**: If a specific question fails (e.g., safety filter block), only that question is dropped. The pipeline **does not stop**.
+*   **Logging**: Failed Question IDs are written to `logs/failed_questions.log`.
+*   **Recovery**: You can easily inspect the log, create a new CSV with just those IDs, and re-run the pipeline to retry.

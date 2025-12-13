@@ -4,6 +4,8 @@ import time
 import asyncio
 from typing import List
 
+from tqdm import tqdm
+
 from .config import PipelineConfig
 from .models import QuestionTask, GeneratedQuestion, WorkerResult
 from .llm_client import GeminiClient
@@ -76,23 +78,24 @@ class ModelWorker:
 
         return generated
 
-    async def process_all(self, tasks: List[QuestionTask]) -> WorkerResult:
+    async def process_all(self, tasks: List[QuestionTask], position: int = 0) -> WorkerResult:
         """Process all assigned questions sequentially with throttling."""
         processed_count = 0
         failed_qids = []
         total_generated = 0
 
-        for task in tasks:
+        pbar = tqdm(tasks, desc=f"{self.model_name}", position=position, leave=True)
+        for task in pbar:
             try:
                 results = await self.process_question(task)
                 write_results_threadsafe(results, self.config.output_file)
                 processed_count += 1
                 total_generated += len(results)
-                print(f"[{self.model_name}] Processed qid={task.qid}, generated {len(results)} questions")
+                pbar.set_postfix(generated=total_generated, failed=len(failed_qids))
             except Exception as e:
                 failed_qids.append(task.qid)
                 log_failed_question(task.qid, str(e), self.config.log_dir)
-                print(f"[{self.model_name}] Failed qid={task.qid}: {e}")
+                pbar.set_postfix(generated=total_generated, failed=len(failed_qids))
 
         return WorkerResult(
             model_name=self.model_name,

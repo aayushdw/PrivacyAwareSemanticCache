@@ -12,11 +12,11 @@ class PipelineConfig:
 
     def __init__(
         self,
-        input_file: str = "data/raw/small_final_questions.csv",
-        output_file: str = "data/generated_data/synthetic_questions.csv",
+        input_file: str = "data/raw/final_questions.csv",
+        output_file: str = "data/generated_data/synthetic_dataset.csv",
         log_dir: str = "data/synthetic_data_generator/logs",
         model_list: List[str] = None,
-        llm_rpm_limit: int = 15,
+        llm_rpm_limit: int = 25,
         similar_count: int = 2,
         different_count: int = 3,
         temperature: float = 0.7,
@@ -28,7 +28,7 @@ class PipelineConfig:
         self.input_file = input_file
         self.output_file = output_file
         self.log_dir = log_dir
-        self.model_list = model_list or ["gemma-3-4b-it"]
+        self.model_list = model_list or ["gemma-3-1b-it", "gemma-3-4b-it", "gemma-3-12b-it", "gemma-3-27b-it",]
         self.llm_rpm_limit = llm_rpm_limit
         self.similar_count = similar_count
         self.different_count = different_count
