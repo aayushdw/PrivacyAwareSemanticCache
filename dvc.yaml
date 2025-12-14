@@ -1,0 +1,8 @@
+stages:
+  prepare:
+    cmd: .venv/bin/python data_processing/split_data.py
+    deps:
+      - data_processing/split_data.py
+      - data/generated_data/triplet_dataset.csv
+    outs:
+      - data/processed

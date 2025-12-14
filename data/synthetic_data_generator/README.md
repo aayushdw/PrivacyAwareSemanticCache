@@ -32,9 +32,9 @@ graph TD
     
     subgraph ExecutionPlane [Parallel Execution Plane]
         direction TB
-        Distribute --> W1[Worker 1<br/>Model: gemma-2-1b]:::process
-        Distribute --> W2[Worker 2<br/>Model: gemma-2-12b]:::process
-        Distribute --> WN[Worker N<br/>Model: gemma-2-27b]:::process
+        Distribute --> W1[Worker 1<br/>Model: gemma-3-1b]:::process
+        Distribute --> W2[Worker 2<br/>Model: gemma-3-12b]:::process
+        Distribute --> WN[Worker N<br/>Model: gemma-3-27b]:::process
     end
 
     subgraph ExternalServices [External Services]

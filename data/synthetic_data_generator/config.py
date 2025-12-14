@@ -17,8 +17,8 @@ class PipelineConfig:
         log_dir: str = "data/synthetic_data_generator/logs",
         model_list: List[str] = None,
         llm_rpm_limit: int = 25,
-        similar_count: int = 2,
-        different_count: int = 3,
+        similar_count: int = 1,
+        different_count: int = 1,
         temperature: float = 0.7,
     ):
         self.gemini_api_key = os.getenv("GEMINI_API_KEY")

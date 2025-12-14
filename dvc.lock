@@ -1,0 +1,19 @@
+schema: '2.0'
+stages:
+  prepare:
+    cmd: .venv/bin/python data_processing/split_data.py
+    deps:
+    - path: data/generated_data/triplet_dataset.csv
+      hash: md5
+      md5: 451fb7998d854a56e40cef17e352c5f9
+      size: 4678635
+    - path: data_processing/split_data.py
+      hash: md5
+      md5: fcbfaa544ab7077896187faaf20f72fb
+      size: 1744
+    outs:
+    - path: data/processed
+      hash: md5
+      md5: 16eaac928aec4a24ab17a14829ff2526.dir
+      size: 4914099
+      nfiles: 6

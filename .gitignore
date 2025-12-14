@@ -34,3 +34,6 @@ prefect_data/
 *.log
 logs/
 **/logs/
+
+# Data processing
+data/processed/
