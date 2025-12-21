@@ -1,6 +1,8 @@
 # Environment and secrets
 .env
 
+agent/
+
 # Dataset
 *.csv
 
@@ -23,12 +25,10 @@ __pycache__/
 .DS_Store
 
 # MLflow
-mlflow_data/
-**/mlflow_data/
+mlflow/data/
 
 # Prefect
-prefect_data/
-**/prefect_data/
+prefect/postgres-data/
 
 # Logs
 *.log
