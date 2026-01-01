@@ -8,13 +8,13 @@ services:
     ports:
       - "5001:5001"
     volumes:
-      - ./mlflow/data:/data
+      - ./mlflow/data:${PWD}/mlflow/data
     command: >
       mlflow server
       --host 0.0.0.0
       --port 5001
-      --backend-store-uri sqlite:///data/mlflow.db
-      --default-artifact-root /data/mlruns
+      --backend-store-uri sqlite:///${PWD}/mlflow/data/mlflow.db
+      --default-artifact-root ${PWD}/mlflow/data/mlruns
 
   # ============================================
   # Prefect - Workflow Orchestration
