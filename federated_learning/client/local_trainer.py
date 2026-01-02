@@ -13,6 +13,8 @@ from transformers import AutoModel, AutoTokenizer
 from embedding_pipeline.lora_training.lora_trainer import TripletDataset
 from embedding_pipeline.utils.device_utils import clear_gpu_memory, get_device
 
+from .lora_utils import freeze_lora_a
+
 
 class LocalLoRATrainer:
     """Handles local LoRA training for a Flower client."""
@@ -25,6 +27,7 @@ class LocalLoRATrainer:
         learning_rate: float = 2e-4,
         batch_size: int = 32,
         max_seq_length: int = 128,
+        freeze_lora_a: bool = True,
     ):
         """
         Initialize local trainer.
@@ -36,6 +39,7 @@ class LocalLoRATrainer:
             learning_rate: Learning rate for AdamW optimizer
             batch_size: Training batch size
             max_seq_length: Maximum sequence length for tokenization
+            freeze_lora_a: If True, freeze lora_A and only train lora_B for stability
         """
         self.base_model_name = base_model_name
         self.lora_config = lora_config
@@ -43,6 +47,7 @@ class LocalLoRATrainer:
         self.learning_rate = learning_rate
         self.batch_size = batch_size
         self.max_seq_length = max_seq_length
+        self.freeze_lora_a_flag = freeze_lora_a
 
         self.device = get_device()
         self.model = None
@@ -79,9 +84,14 @@ class LocalLoRATrainer:
         self.model = get_peft_model(base_model, lora_cfg)
         self.model.to(self.device)
 
-        # Setup optimizer
+        # Freeze lora_A if configured (only train lora_B for stability)
+        if self.freeze_lora_a_flag:
+            frozen_count = freeze_lora_a(self.model)
+            print(f"Froze {frozen_count} lora_A parameters, training only lora_B")
+
+        # Setup optimizer (only includes trainable parameters)
         self.optimizer = torch.optim.AdamW(
-            self.model.parameters(),
+            filter(lambda p: p.requires_grad, self.model.parameters()),
             lr=self.learning_rate,
             weight_decay=0.01,
         )

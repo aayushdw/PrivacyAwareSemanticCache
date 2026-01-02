@@ -30,7 +30,8 @@ def start_server(config: FLServerConfig) -> None:
     print(f"  Base model: {config.base_model_name}")
     print(f"  LoRA rank: {config.lora_r}")
     print(f"  LoRA alpha: {config.lora_alpha}")
-    print(f"  Number of LoRA parameters: {len(param_names)}")
+    print(f"  Freeze lora_A: {config.freeze_lora_a}")
+    print(f"  Number of parameters: {len(param_names)}")
     print(f"  FL rounds: {config.num_rounds}")
     print(f"  Min clients: {config.min_clients}")
     print(f"  Server address: {config.server_address}")
@@ -41,6 +42,7 @@ def start_server(config: FLServerConfig) -> None:
         "lora_alpha": config.lora_alpha,
         "lora_dropout": config.lora_dropout,
         "target_modules": config.target_modules,
+        "freeze_lora_a": config.freeze_lora_a,
     }
 
     # Create strategy

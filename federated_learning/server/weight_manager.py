@@ -24,6 +24,7 @@ class ServerWeightManager:
         """
         self.config = config
         self.lora_param_names: List[str] = []
+        self.freeze_lora_a = config.freeze_lora_a
 
     def load_initial_lora_weights(self) -> Tuple[List[np.ndarray], List[str]]:
         """
@@ -40,13 +41,22 @@ class ServerWeightManager:
             if os.path.exists(safetensors_path):
                 state_dict = load_file(safetensors_path)
 
-                # Sort keys for consistent ordering across clients
-                sorted_keys = sorted(state_dict.keys())
-                self.lora_param_names = sorted_keys
+                # Filter keys based on freeze_lora_a setting
+                if self.freeze_lora_a:
+                    filtered_keys = sorted(
+                        [k for k in state_dict.keys() if "lora_B" in k]
+                    )
+                else:
+                    filtered_keys = sorted(state_dict.keys())
 
-                parameters = [state_dict[k].numpy() for k in sorted_keys]
-                print(f"Loaded {len(parameters)} LoRA parameters from {safetensors_path}")
-                return parameters, sorted_keys
+                self.lora_param_names = filtered_keys
+                parameters = [state_dict[k].numpy() for k in filtered_keys]
+                param_type = "lora_B" if self.freeze_lora_a else "LoRA"
+                print(
+                    f"Loaded {len(parameters)} {param_type} parameters "
+                    f"from {safetensors_path}"
+                )
+                return parameters, filtered_keys
 
         # Initialize fresh LoRA weights from a new model
         print("No existing LoRA weights found, initializing fresh weights")
@@ -68,11 +78,15 @@ class ServerWeightManager:
         peft_model = get_peft_model(base_model, lora_config)
 
         # Extract LoRA parameters (sorted by name)
+        # Filter based on freeze_lora_a setting
         lora_params = []
         lora_names = []
 
         for name, param in peft_model.named_parameters():
-            if param.requires_grad and ("lora_A" in name or "lora_B" in name):
+            if "lora_B" in name:
+                lora_names.append(name)
+                lora_params.append(param.detach().cpu().numpy())
+            elif "lora_A" in name and not self.freeze_lora_a:
                 lora_names.append(name)
                 lora_params.append(param.detach().cpu().numpy())
 
@@ -85,7 +99,8 @@ class ServerWeightManager:
         del peft_model
         del base_model
 
-        print(f"Initialized {len(sorted_params)} fresh LoRA parameters")
+        param_type = "lora_B" if self.freeze_lora_a else "LoRA"
+        print(f"Initialized {len(sorted_params)} fresh {param_type} parameters")
         return sorted_params, self.lora_param_names
 
     def save_aggregated_weights(

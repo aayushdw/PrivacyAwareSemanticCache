@@ -69,6 +69,7 @@ class LoRAFedAvg(FedAvg):
                 "lora_alpha": self.lora_config["lora_alpha"],
                 "lora_dropout": self.lora_config["lora_dropout"],
                 "target_modules": ",".join(self.lora_config["target_modules"]),
+                "freeze_lora_a": str(self.lora_config.get("freeze_lora_a", True)).lower(),
                 "server_round": server_round,
             }
         )

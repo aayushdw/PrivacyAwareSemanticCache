@@ -19,6 +19,7 @@ class FLServerConfig:
     target_modules: List[str] = field(
         default_factory=lambda: ["query", "key", "value", "dense"]
     )
+    freeze_lora_a: bool = True  # Freeze lora_A matrix, only train lora_B for stability
 
     # FL configuration
     num_rounds: int = 5

@@ -58,6 +58,9 @@ class LoRAFlowerClient(fl.client.Client):
             "target_modules": target_modules_str.split(","),
         }
 
+        # Parse freeze_lora_a config (default True for stability)
+        self.freeze_lora_a = config.get("freeze_lora_a", "true").lower() == "true"
+
         # Create trainer
         self.trainer = LocalLoRATrainer(
             base_model_name=self.base_model_name,
@@ -66,6 +69,7 @@ class LoRAFlowerClient(fl.client.Client):
             learning_rate=self.config.learning_rate,
             batch_size=self.config.batch_size,
             max_seq_length=self.config.max_seq_length,
+            freeze_lora_a=self.freeze_lora_a,
         )
 
         self._initialized = True
@@ -73,11 +77,11 @@ class LoRAFlowerClient(fl.client.Client):
         print(f"  Base model: {self.base_model_name}")
         print(
             f"  LoRA config: r={self.lora_config['lora_r']}, "
-            f"alpha={self.lora_config['lora_alpha']}"
+            f"alpha={self.lora_config['lora_alpha']}, freeze_lora_a={self.freeze_lora_a}"
         )
 
     def get_parameters(self, ins: GetParametersIns) -> GetParametersRes:
-        """Return current LoRA parameters."""
+        """Return current LoRA parameters (only lora_B if lora_A is frozen)."""
         if self.trainer is None or self.trainer.model is None:
             # Return empty if not initialized
             return GetParametersRes(
@@ -85,7 +89,9 @@ class LoRAFlowerClient(fl.client.Client):
                 parameters=ndarrays_to_parameters([]),
             )
 
-        lora_params = get_lora_parameters(self.trainer.model)
+        lora_params = get_lora_parameters(
+            self.trainer.model, lora_b_only=self.freeze_lora_a
+        )
         return GetParametersRes(
             status=Status(code=Code.OK, message="Success"),
             parameters=ndarrays_to_parameters(lora_params),
@@ -99,13 +105,15 @@ class LoRAFlowerClient(fl.client.Client):
         # Initialize model if needed
         self.trainer.initialize_model()
 
-        # Apply received LoRA weights from server
+        # Apply received LoRA weights from server (only lora_B if lora_A is frozen)
         server_weights = parameters_to_ndarrays(ins.parameters)
         if len(server_weights) > 0:
-            set_lora_parameters(self.trainer.model, server_weights)
+            set_lora_parameters(
+                self.trainer.model, server_weights, lora_b_only=self.freeze_lora_a
+            )
             print(
                 f"Client {self.config.client_id}: Applied {len(server_weights)} "
-                "LoRA parameters from server"
+                f"{'lora_B' if self.freeze_lora_a else 'LoRA'} parameters from server"
             )
 
         # Train locally
@@ -117,8 +125,10 @@ class LoRAFlowerClient(fl.client.Client):
             f"loss={metrics['train_loss']:.4f}"
         )
 
-        # Extract updated LoRA weights
-        updated_weights = get_lora_parameters(self.trainer.model)
+        # Extract updated LoRA weights (only lora_B if lora_A is frozen)
+        updated_weights = get_lora_parameters(
+            self.trainer.model, lora_b_only=self.freeze_lora_a
+        )
 
         return FitRes(
             status=Status(code=Code.OK, message="Success"),
