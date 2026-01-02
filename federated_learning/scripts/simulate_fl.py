@@ -30,6 +30,10 @@ def run_simulation(
     lora_path: str = "embedding_pipeline/outputs/models/mpnet-base_lora",
     base_model: str = "sentence-transformers/all-mpnet-base-v2",
     output_dir: str = "federated_learning/outputs",
+    enable_dp: bool = False,
+    dp_epsilon: float = 8.0,
+    dp_delta: float = 1e-5,
+    dp_max_grad_norm: float = 1.0,
 ) -> Dict:
     """
     Run FL simulation with multiple clients in a single process.
@@ -40,6 +44,10 @@ def run_simulation(
         lora_path: Path to initial LoRA adapter
         base_model: HuggingFace base model ID
         output_dir: Output directory for results
+        enable_dp: Enable differential privacy (DP-SGD)
+        dp_epsilon: Target epsilon for DP
+        dp_delta: Target delta for DP
+        dp_max_grad_norm: Max gradient norm for DP clipping
 
     Returns:
         History of FL training
@@ -51,6 +59,9 @@ def run_simulation(
     print(f"  Rounds: {num_rounds}")
     print(f"  Base model: {base_model}")
     print(f"  LoRA path: {lora_path}")
+    print(f"  Differential Privacy: {'Enabled' if enable_dp else 'Disabled'}")
+    if enable_dp:
+        print(f"    Epsilon: {dp_epsilon}, Delta: {dp_delta}")
     print("=" * 60)
 
     # Create server config
@@ -61,6 +72,10 @@ def run_simulation(
         min_clients=num_clients,
         min_available_clients=num_clients,
         output_dir=output_dir,
+        enable_dp=enable_dp,
+        dp_epsilon=dp_epsilon,
+        dp_delta=dp_delta,
+        dp_max_grad_norm=dp_max_grad_norm,
     )
 
     # Initialize weight manager and load initial weights
@@ -76,11 +91,20 @@ def run_simulation(
         "target_modules": server_config.target_modules,
     }
 
+    # Create DP config
+    dp_config = {
+        "enable_dp": server_config.enable_dp,
+        "dp_epsilon": server_config.dp_epsilon,
+        "dp_delta": server_config.dp_delta,
+        "dp_max_grad_norm": server_config.dp_max_grad_norm,
+    }
+
     # Create strategy
     strategy = LoRAFedAvg(
         base_model_name=server_config.base_model_name,
         lora_config=lora_config,
         weight_manager=weight_manager,
+        dp_config=dp_config,
         initial_parameters=initial_parameters,
         min_fit_clients=num_clients,
         min_available_clients=num_clients,
@@ -139,6 +163,29 @@ def main():
         default="federated_learning/outputs",
         help="Output directory for aggregated weights",
     )
+    parser.add_argument(
+        "--enable-dp",
+        action="store_true",
+        help="Enable differential privacy (DP-SGD)",
+    )
+    parser.add_argument(
+        "--dp-epsilon",
+        type=float,
+        default=8.0,
+        help="Target epsilon for DP (default: 8.0)",
+    )
+    parser.add_argument(
+        "--dp-delta",
+        type=float,
+        default=1e-5,
+        help="Target delta for DP (default: 1e-5)",
+    )
+    parser.add_argument(
+        "--dp-max-grad-norm",
+        type=float,
+        default=1.0,
+        help="Max gradient norm for DP clipping (default: 1.0)",
+    )
 
     args = parser.parse_args()
 
@@ -148,6 +195,10 @@ def main():
         lora_path=args.lora_path,
         base_model=args.base_model,
         output_dir=args.output_dir,
+        enable_dp=args.enable_dp,
+        dp_epsilon=args.dp_epsilon,
+        dp_delta=args.dp_delta,
+        dp_max_grad_norm=args.dp_max_grad_norm,
     )
 
 

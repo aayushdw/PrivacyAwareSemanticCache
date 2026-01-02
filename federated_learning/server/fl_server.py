@@ -35,6 +35,11 @@ def start_server(config: FLServerConfig) -> None:
     print(f"  FL rounds: {config.num_rounds}")
     print(f"  Min clients: {config.min_clients}")
     print(f"  Server address: {config.server_address}")
+    print(f"  Differential Privacy: {'Enabled' if config.enable_dp else 'Disabled'}")
+    if config.enable_dp:
+        print(f"    Epsilon: {config.dp_epsilon}")
+        print(f"    Delta: {config.dp_delta}")
+        print(f"    Max Grad Norm: {config.dp_max_grad_norm}")
 
     # Create LoRA config dict
     lora_config = {
@@ -45,11 +50,20 @@ def start_server(config: FLServerConfig) -> None:
         "freeze_lora_a": config.freeze_lora_a,
     }
 
+    # Create DP config dict
+    dp_config = {
+        "enable_dp": config.enable_dp,
+        "dp_epsilon": config.dp_epsilon,
+        "dp_delta": config.dp_delta,
+        "dp_max_grad_norm": config.dp_max_grad_norm,
+    }
+
     # Create strategy
     strategy = LoRAFedAvg(
         base_model_name=config.base_model_name,
         lora_config=lora_config,
         weight_manager=weight_manager,
+        dp_config=dp_config,
         initial_parameters=initial_parameters,
         min_fit_clients=config.min_clients,
         min_available_clients=config.min_available_clients,

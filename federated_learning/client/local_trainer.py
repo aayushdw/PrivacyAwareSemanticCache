@@ -1,10 +1,12 @@
 """Local training logic for FL clients."""
 
 import os
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 import torch
 import torch.nn as nn
+from opacus import PrivacyEngine
+from opacus.validators import ModuleValidator
 from peft import LoraConfig, TaskType, get_peft_model
 from torch.utils.data import DataLoader
 from tqdm import tqdm
@@ -28,6 +30,7 @@ class LocalLoRATrainer:
         batch_size: int = 32,
         max_seq_length: int = 128,
         freeze_lora_a: bool = True,
+        dp_config: Optional[Dict] = None,
     ):
         """
         Initialize local trainer.
@@ -40,6 +43,7 @@ class LocalLoRATrainer:
             batch_size: Training batch size
             max_seq_length: Maximum sequence length for tokenization
             freeze_lora_a: If True, freeze lora_A and only train lora_B for stability
+            dp_config: Optional dict with enable_dp, dp_epsilon, dp_delta, dp_max_grad_norm
         """
         self.base_model_name = base_model_name
         self.lora_config = lora_config
@@ -49,10 +53,15 @@ class LocalLoRATrainer:
         self.max_seq_length = max_seq_length
         self.freeze_lora_a_flag = freeze_lora_a
 
+        # DP configuration
+        self.dp_config = dp_config or {"enable_dp": False}
+        self.enable_dp = self.dp_config.get("enable_dp", False)
+
         self.device = get_device()
         self.model = None
         self.tokenizer = None
         self.optimizer = None
+        self.privacy_engine = None
         self.criterion = nn.TripletMarginLoss(margin=0.2, p=2)
 
     def initialize_model(self) -> None:
@@ -82,6 +91,13 @@ class LocalLoRATrainer:
         )
 
         self.model = get_peft_model(base_model, lora_cfg)
+
+        # Validate model for Opacus compatibility if DP is enabled
+        if self.enable_dp:
+            if not ModuleValidator.is_valid(self.model):
+                self.model = ModuleValidator.fix(self.model)
+                print("Fixed model for Opacus compatibility")
+
         self.model.to(self.device)
 
         # Freeze lora_A if configured (only train lora_B for stability)
@@ -112,6 +128,31 @@ class LocalLoRATrainer:
         embeddings = self._mean_pooling(outputs, attention_mask)
         return nn.functional.normalize(embeddings, p=2, dim=1)
 
+    def _setup_privacy_engine(self, dataloader: DataLoader) -> DataLoader:
+        """Wrap model, optimizer, and dataloader with Opacus PrivacyEngine."""
+        epsilon = self.dp_config.get("dp_epsilon", 8.0)
+        delta = self.dp_config.get("dp_delta", 1e-5)
+        max_grad_norm = self.dp_config.get("dp_max_grad_norm", 1.0)
+
+        self.privacy_engine = PrivacyEngine()
+        self.model, self.optimizer, dataloader = self.privacy_engine.make_private_with_epsilon(
+            module=self.model,
+            optimizer=self.optimizer,
+            data_loader=dataloader,
+            target_epsilon=epsilon,
+            target_delta=delta,
+            max_grad_norm=max_grad_norm,
+            epochs=1,
+            # Use functorch for per-sample gradient computation.
+            # This is required for LoRA adapters with frozen base weights because
+            # the default hooks-based approach doesn't work when the gradient chain
+            # goes through frozen parameters.
+            grad_sample_mode="functorch",
+        )
+
+        print(f"DP-SGD enabled: epsilon={epsilon}, delta={delta}, max_grad_norm={max_grad_norm}")
+        return dataloader
+
     def train_local_epochs(self, num_epochs: int = 1) -> Dict:
         """
         Train for specified number of local epochs.
@@ -124,7 +165,7 @@ class LocalLoRATrainer:
         """
         self.initialize_model()
 
-        # Create dataloader
+        # Create dataloader (num_workers=0 required for Opacus compatibility)
         dataset = TripletDataset(
             self.train_data_path, self.tokenizer, self.max_seq_length
         )
@@ -132,9 +173,13 @@ class LocalLoRATrainer:
             dataset,
             batch_size=self.batch_size,
             shuffle=True,
-            num_workers=2,
+            num_workers=0,
             pin_memory=False,
         )
+
+        # Setup DP if enabled (only once - don't double-wrap in subsequent rounds)
+        if self.enable_dp and self.privacy_engine is None:
+            dataloader = self._setup_privacy_engine(dataloader)
 
         total_loss = 0.0
         num_batches = 0
@@ -155,28 +200,59 @@ class LocalLoRATrainer:
                 negative_ids = batch["negative_input_ids"].to(self.device)
                 negative_mask = batch["negative_attention_mask"].to(self.device)
 
-                # Batch encode for efficiency
-                batch_size = anchor_ids.size(0)
-                combined_ids = torch.cat(
-                    [anchor_ids, positive_ids, negative_ids], dim=0
-                )
-                combined_mask = torch.cat(
-                    [anchor_mask, positive_mask, negative_mask], dim=0
-                )
-
-                # Forward pass
                 self.optimizer.zero_grad()
-                combined_emb = self._encode(combined_ids, combined_mask)
 
-                anchor_emb = combined_emb[:batch_size]
-                positive_emb = combined_emb[batch_size : 2 * batch_size]
-                negative_emb = combined_emb[2 * batch_size :]
+                if self.enable_dp:
+                    # For DP-SGD with Opacus: we must only pass the anchor samples
+                    # through the DP-wrapped model to get correct per-sample gradients.
+                    # Opacus hooks expect the batch dimension to match the dataloader.
+                    #
+                    # Strategy: Compute anchor embedding with gradients (goes through DP hooks),
+                    # compute positive/negative embeddings without gradients using the
+                    # underlying base model accessed through the wrapped module.
+                    
+                    # Get anchor embeddings with DP gradient tracking
+                    anchor_emb = self._encode(anchor_ids, anchor_mask)
+                    
+                    # For positive/negative, we need embeddings for loss but no gradients.
+                    # Use torch.no_grad to avoid interfering with Opacus hooks.
+                    with torch.no_grad():
+                        # Access the underlying model (works for both wrapped and unwrapped)
+                        base_model = self.model
+                        if hasattr(self.model, '_module'):
+                            # GradSampleModule wraps the actual module
+                            base_model = self.model._module
+                        
+                        # Compute positive embeddings
+                        pos_outputs = base_model(input_ids=positive_ids, attention_mask=positive_mask)
+                        positive_emb = self._mean_pooling(pos_outputs, positive_mask)
+                        positive_emb = nn.functional.normalize(positive_emb, p=2, dim=1)
+                        
+                        # Compute negative embeddings
+                        neg_outputs = base_model(input_ids=negative_ids, attention_mask=negative_mask)
+                        negative_emb = self._mean_pooling(neg_outputs, negative_mask)
+                        negative_emb = nn.functional.normalize(negative_emb, p=2, dim=1)
+                else:
+                    # Standard combined encoding for efficiency (non-DP mode)
+                    batch_size = anchor_ids.size(0)
+                    combined_ids = torch.cat(
+                        [anchor_ids, positive_ids, negative_ids], dim=0
+                    )
+                    combined_mask = torch.cat(
+                        [anchor_mask, positive_mask, negative_mask], dim=0
+                    )
+                    combined_emb = self._encode(combined_ids, combined_mask)
+                    anchor_emb = combined_emb[:batch_size]
+                    positive_emb = combined_emb[batch_size : 2 * batch_size]
+                    negative_emb = combined_emb[2 * batch_size :]
 
                 # Compute loss
                 loss = self.criterion(anchor_emb, positive_emb, negative_emb)
                 loss.backward()
 
-                torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.0)
+                # Only clip gradients manually when DP is disabled (Opacus handles it)
+                if not self.enable_dp:
+                    torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.0)
                 self.optimizer.step()
 
                 epoch_loss += loss.item()
@@ -187,15 +263,27 @@ class LocalLoRATrainer:
 
         avg_loss = total_loss / num_batches if num_batches > 0 else 0.0
 
-        return {
+        # Build result dict
+        result = {
             "train_loss": avg_loss,
             "num_samples": len(dataset),
             "num_batches": num_batches,
         }
+
+        # Add privacy metrics if DP is enabled
+        if self.enable_dp and self.privacy_engine is not None:
+            epsilon_spent = self.privacy_engine.get_epsilon(
+                delta=self.dp_config.get("dp_delta", 1e-5)
+            )
+            result["epsilon_spent"] = epsilon_spent
+            print(f"Privacy budget spent: epsilon={epsilon_spent:.2f}")
+
+        return result
 
     def cleanup(self) -> None:
         """Clean up resources."""
         self.model = None
         self.tokenizer = None
         self.optimizer = None
+        self.privacy_engine = None
         clear_gpu_memory()

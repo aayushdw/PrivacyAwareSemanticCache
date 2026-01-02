@@ -61,6 +61,14 @@ class LoRAFlowerClient(fl.client.Client):
         # Parse freeze_lora_a config (default True for stability)
         self.freeze_lora_a = config.get("freeze_lora_a", "true").lower() == "true"
 
+        # Parse DP configuration from server
+        self.dp_config = {
+            "enable_dp": config.get("enable_dp", "false").lower() == "true",
+            "dp_epsilon": float(config.get("dp_epsilon", 8.0)),
+            "dp_delta": float(config.get("dp_delta", 1e-5)),
+            "dp_max_grad_norm": float(config.get("dp_max_grad_norm", 1.0)),
+        }
+
         # Create trainer
         self.trainer = LocalLoRATrainer(
             base_model_name=self.base_model_name,
@@ -70,6 +78,7 @@ class LoRAFlowerClient(fl.client.Client):
             batch_size=self.config.batch_size,
             max_seq_length=self.config.max_seq_length,
             freeze_lora_a=self.freeze_lora_a,
+            dp_config=self.dp_config,
         )
 
         self._initialized = True
@@ -79,6 +88,13 @@ class LoRAFlowerClient(fl.client.Client):
             f"  LoRA config: r={self.lora_config['lora_r']}, "
             f"alpha={self.lora_config['lora_alpha']}, freeze_lora_a={self.freeze_lora_a}"
         )
+        if self.dp_config["enable_dp"]:
+            print(
+                f"  DP-SGD: epsilon={self.dp_config['dp_epsilon']}, "
+                f"delta={self.dp_config['dp_delta']}"
+            )
+        else:
+            print("  DP-SGD: Disabled")
 
     def get_parameters(self, ins: GetParametersIns) -> GetParametersRes:
         """Return current LoRA parameters (only lora_B if lora_A is frozen)."""

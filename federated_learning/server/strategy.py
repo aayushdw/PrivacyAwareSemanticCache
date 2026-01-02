@@ -30,6 +30,7 @@ class LoRAFedAvg(FedAvg):
         base_model_name: str,
         lora_config: Dict,
         weight_manager: ServerWeightManager,
+        dp_config: Optional[Dict] = None,
         initial_parameters: Optional[Parameters] = None,
         **kwargs,
     ):
@@ -40,6 +41,7 @@ class LoRAFedAvg(FedAvg):
             base_model_name: HuggingFace model ID for base model
             lora_config: Dict with lora_r, lora_alpha, lora_dropout, target_modules
             weight_manager: Server weight manager for saving checkpoints
+            dp_config: Optional dict with enable_dp, dp_epsilon, dp_delta, dp_max_grad_norm
             initial_parameters: Initial LoRA parameters
             **kwargs: Additional arguments for FedAvg
         """
@@ -47,6 +49,7 @@ class LoRAFedAvg(FedAvg):
         self.base_model_name = base_model_name
         self.lora_config = lora_config
         self.weight_manager = weight_manager
+        self.dp_config = dp_config or {}
         self.current_round = 0
 
     def configure_fit(
@@ -71,6 +74,11 @@ class LoRAFedAvg(FedAvg):
                 "target_modules": ",".join(self.lora_config["target_modules"]),
                 "freeze_lora_a": str(self.lora_config.get("freeze_lora_a", True)).lower(),
                 "server_round": server_round,
+                # Differential Privacy configuration
+                "enable_dp": str(self.dp_config.get("enable_dp", False)).lower(),
+                "dp_epsilon": self.dp_config.get("dp_epsilon", 8.0),
+                "dp_delta": self.dp_config.get("dp_delta", 1e-5),
+                "dp_max_grad_norm": self.dp_config.get("dp_max_grad_norm", 1.0),
             }
         )
 

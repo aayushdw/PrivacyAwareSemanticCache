@@ -46,6 +46,29 @@ def main():
         default="federated_learning/outputs",
         help="Output directory for aggregated weights",
     )
+    parser.add_argument(
+        "--enable-dp",
+        action="store_true",
+        help="Enable differential privacy (DP-SGD)",
+    )
+    parser.add_argument(
+        "--dp-epsilon",
+        type=float,
+        default=8.0,
+        help="Target epsilon for DP (default: 8.0)",
+    )
+    parser.add_argument(
+        "--dp-delta",
+        type=float,
+        default=1e-5,
+        help="Target delta for DP (default: 1e-5)",
+    )
+    parser.add_argument(
+        "--dp-max-grad-norm",
+        type=float,
+        default=1.0,
+        help="Max gradient norm for DP clipping (default: 1.0)",
+    )
 
     args = parser.parse_args()
 
@@ -57,6 +80,10 @@ def main():
         min_available_clients=args.min_clients,
         server_address=args.address,
         output_dir=args.output_dir,
+        enable_dp=args.enable_dp,
+        dp_epsilon=args.dp_epsilon,
+        dp_delta=args.dp_delta,
+        dp_max_grad_norm=args.dp_max_grad_norm,
     )
 
     start_server(config)

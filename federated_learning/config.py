@@ -17,7 +17,10 @@ class FLServerConfig:
     lora_alpha: int = 32
     lora_dropout: float = 0.1
     target_modules: List[str] = field(
-        default_factory=lambda: ["query", "key", "value", "dense"]
+        # MPNet attention layer names for LoRA
+        # Using 'q', 'k', 'v', 'o' (not 'query', 'key', 'value', 'dense')
+        # This is required for Opacus DP-SGD compatibility
+        default_factory=lambda: ["q", "k", "v", "o"]
     )
     freeze_lora_a: bool = True  # Freeze lora_A matrix, only train lora_B for stability
 
@@ -33,6 +36,12 @@ class FLServerConfig:
 
     # Output
     output_dir: str = "federated_learning/outputs"
+
+    # Differential Privacy configuration
+    enable_dp: bool = False  # DP is off by default
+    dp_epsilon: float = 8.0  # Target epsilon (privacy budget)
+    dp_delta: float = 1e-5  # Target delta (failure probability)
+    dp_max_grad_norm: float = 1.0  # Gradient clipping bound for DP-SGD
 
 
 @dataclass
