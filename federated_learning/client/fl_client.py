@@ -1,0 +1,137 @@
+"""Flower client for federated LoRA training."""
+
+import flwr as fl
+from flwr.common import (
+    Code,
+    FitIns,
+    FitRes,
+    GetParametersIns,
+    GetParametersRes,
+    Parameters,
+    Status,
+    ndarrays_to_parameters,
+    parameters_to_ndarrays,
+)
+
+from ..config import FLClientConfig
+from .local_trainer import LocalLoRATrainer
+from .lora_utils import get_lora_parameters, set_lora_parameters
+
+
+class LoRAFlowerClient(fl.client.Client):
+    """
+    Flower client for federated LoRA training.
+
+    Receives base_model_name and LoRA config from server, trains locally
+    on triplet data, and returns updated LoRA adapter weights.
+    """
+
+    def __init__(self, config: FLClientConfig):
+        """
+        Initialize Flower client.
+
+        Args:
+            config: Client configuration with data path and training params
+        """
+        self.config = config
+        self.trainer: LocalLoRATrainer = None
+        self.base_model_name: str = None
+        self.lora_config: dict = None
+        self._initialized = False
+
+    def _ensure_initialized(self, config: dict) -> None:
+        """Initialize trainer from server config if not already done."""
+        if self._initialized:
+            return
+
+        # Parse base model name from server config
+        self.base_model_name = config.get("base_model_name")
+        if not self.base_model_name:
+            raise ValueError("Server did not provide base_model_name")
+
+        # Parse LoRA config from server
+        target_modules_str = config.get("target_modules", "query,key,value,dense")
+        self.lora_config = {
+            "lora_r": int(config.get("lora_r", 16)),
+            "lora_alpha": int(config.get("lora_alpha", 32)),
+            "lora_dropout": float(config.get("lora_dropout", 0.1)),
+            "target_modules": target_modules_str.split(","),
+        }
+
+        # Create trainer
+        self.trainer = LocalLoRATrainer(
+            base_model_name=self.base_model_name,
+            lora_config=self.lora_config,
+            train_data_path=self.config.train_data_path,
+            learning_rate=self.config.learning_rate,
+            batch_size=self.config.batch_size,
+            max_seq_length=self.config.max_seq_length,
+        )
+
+        self._initialized = True
+        print(f"Client {self.config.client_id} initialized")
+        print(f"  Base model: {self.base_model_name}")
+        print(
+            f"  LoRA config: r={self.lora_config['lora_r']}, "
+            f"alpha={self.lora_config['lora_alpha']}"
+        )
+
+    def get_parameters(self, ins: GetParametersIns) -> GetParametersRes:
+        """Return current LoRA parameters."""
+        if self.trainer is None or self.trainer.model is None:
+            # Return empty if not initialized
+            return GetParametersRes(
+                status=Status(code=Code.OK, message="Not initialized"),
+                parameters=ndarrays_to_parameters([]),
+            )
+
+        lora_params = get_lora_parameters(self.trainer.model)
+        return GetParametersRes(
+            status=Status(code=Code.OK, message="Success"),
+            parameters=ndarrays_to_parameters(lora_params),
+        )
+
+    def fit(self, ins: FitIns) -> FitRes:
+        """Train on local data and return updated LoRA parameters."""
+        # Ensure initialized from server config
+        self._ensure_initialized(ins.config)
+
+        # Initialize model if needed
+        self.trainer.initialize_model()
+
+        # Apply received LoRA weights from server
+        server_weights = parameters_to_ndarrays(ins.parameters)
+        if len(server_weights) > 0:
+            set_lora_parameters(self.trainer.model, server_weights)
+            print(
+                f"Client {self.config.client_id}: Applied {len(server_weights)} "
+                "LoRA parameters from server"
+            )
+
+        # Train locally
+        server_round = ins.config.get("server_round", 0)
+        print(f"Client {self.config.client_id}: Starting local training (round {server_round})")
+        metrics = self.trainer.train_local_epochs(self.config.local_epochs)
+        print(
+            f"Client {self.config.client_id}: Completed training, "
+            f"loss={metrics['train_loss']:.4f}"
+        )
+
+        # Extract updated LoRA weights
+        updated_weights = get_lora_parameters(self.trainer.model)
+
+        return FitRes(
+            status=Status(code=Code.OK, message="Success"),
+            parameters=ndarrays_to_parameters(updated_weights),
+            num_examples=metrics["num_samples"],
+            metrics={"train_loss": metrics["train_loss"]},
+        )
+
+
+def start_client(config: FLClientConfig) -> None:
+    """Start a Flower client."""
+    client = LoRAFlowerClient(config)
+    fl.client.start_client(
+        server_address=config.server_address,
+        client=client,
+    )
