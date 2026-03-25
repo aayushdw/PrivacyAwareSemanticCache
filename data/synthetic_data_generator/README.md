@@ -1,6 +1,6 @@
 # Synthetic Data Generator
 
-A high-performance, asynchronous pipeline for generating synthetic datasets using Google Gemini models. This tool mimics real-world user intent variations to robustly train semantic search and cache systems.
+An asynchronous pipeline for generating synthetic datasets using Google Gemini models. This tool mimics real-world user intent variations to robustly train semantic search and cache systems.
 
 ## Overview & Data Strategy
 
@@ -11,7 +11,7 @@ High-quality semantic search requires more than just keyword matching. This pipe
 | **Similar Intent** | Different phrasing, same meaning. | **Positive Pairs**: Teaches the model that "How much is this?" and "What's the price?" are identical requests, improving recall. |
 | **Different Intent** | Shared keywords, different meaning. | **Hard Negatives**: Teaches the model to distinguish subtler nuances (e.g., "Install python" vs "Uninstall python"), reducing false positives. |
 
-It employs a **Map-Reduce** style architecture orchestrated by **LangGraph**, utilizing true parallelism across multiple model workers to maximize throughput while adhering to strict rate limits.
+It uses a **Map-Reduce** style architecture orchestrated by **LangGraph**, utilizing true parallelism across multiple model workers to maximize throughput while adhering to strict rate limits.
 
 ---
 

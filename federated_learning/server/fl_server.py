@@ -41,7 +41,7 @@ def start_server(config: FLServerConfig) -> None:
         print(f"    Delta: {config.dp_delta}")
         print(f"    Max Grad Norm: {config.dp_max_grad_norm}")
 
-    # Create LoRA config dict
+    # Create LoRA config dict (after loading weights, since target_modules may have been updated)
     lora_config = {
         "lora_r": config.lora_r,
         "lora_alpha": config.lora_alpha,

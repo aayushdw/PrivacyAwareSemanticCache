@@ -13,8 +13,8 @@ class EvaluationConfig:
     min_precision: float = 0.80
     threshold_range: Tuple[float, float] = (0.50, 0.99)
     threshold_step: float = 0.01
-    train_data: str = "data/processed/mini_train.csv"
-    test_data: str = "data/processed/mini_test.csv"
+    train_data: str = "data/processed/train.csv"
+    test_data: str = "data/processed/val.csv"
     max_samples: int = 5000
     batch_size: int = 64
 
@@ -45,8 +45,8 @@ class LoRAConfig:
     min_delta: float = 0.0001
     gradient_accumulation_steps: int = 8
     max_seq_length: int = 128
-    train_data: str = "data/processed/mini_train.csv"
-    val_data: str = "data/processed/mini_val.csv"
+    train_data: str = "data/processed/train.csv"
+    val_data: str = "data/processed/val.csv"
 
 
 @dataclass
@@ -54,7 +54,7 @@ class MLFlowConfig:
     """Configuration for MLFlow integration."""
 
     tracking_uri: str = "http://localhost:5001"
-    experiment_prefix: str = "Semantic_Cache_Evaluation_v2"
+    experiment_prefix: str = "Semantic_Cache_Evaluation_v3"
     threshold_tuning_experiment: str = "01_threshold_tuning"
     ranking_experiment: str = "02_model_ranking"
     lora_training_experiment: str = "03_lora_training"

@@ -1,5 +1,6 @@
 """Manages LoRA weights for the FL server."""
 
+import json
 import os
 from typing import List, Tuple
 
@@ -30,12 +31,19 @@ class ServerWeightManager:
         """
         Load initial LoRA weights from the existing trained model.
 
+        Also reads the adapter's config to sync target_modules with the server
+        config, ensuring clients create models with a matching LoRA architecture.
+
         Returns:
             Tuple of (list of numpy arrays, list of parameter names)
         """
         lora_path = self.config.initial_lora_path
 
         if lora_path and os.path.exists(lora_path):
+            # Sync target_modules from the saved adapter config so that
+            # clients create LoRA layers matching the pre-trained adapter.
+            self._sync_config_from_adapter(lora_path)
+
             # Load from existing safetensors file
             safetensors_path = os.path.join(lora_path, "adapter_model.safetensors")
             if os.path.exists(safetensors_path):
@@ -61,6 +69,23 @@ class ServerWeightManager:
         # Initialize fresh LoRA weights from a new model
         print("No existing LoRA weights found, initializing fresh weights")
         return self._initialize_fresh_lora()
+
+    def _sync_config_from_adapter(self, lora_path: str) -> None:
+        """Read adapter_config.json and update server config to match."""
+        config_path = os.path.join(lora_path, "adapter_config.json")
+        if not os.path.exists(config_path):
+            return
+
+        with open(config_path) as f:
+            adapter_cfg = json.load(f)
+
+        saved_modules = adapter_cfg.get("target_modules")
+        if saved_modules and sorted(saved_modules) != sorted(self.config.target_modules):
+            print(
+                f"Updating target_modules from adapter config: "
+                f"{self.config.target_modules} -> {saved_modules}"
+            )
+            self.config.target_modules = saved_modules
 
     def _initialize_fresh_lora(self) -> Tuple[List[np.ndarray], List[str]]:
         """Initialize fresh LoRA weights by creating a new PEFT model."""

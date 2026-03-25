@@ -107,7 +107,6 @@ def embedding_evaluation_pipeline(
         logger.info(f"Evaluation complete: {len(successful)}/{len(evaluation_results)} successful")
     else:
         logger.info("\n[Stage 2] Skipping evaluation (using cached results)...")
-        # In a real implementation, you would load cached results here
         logger.warning("No cached results available - evaluation results will be empty")
 
     # =========================================================================

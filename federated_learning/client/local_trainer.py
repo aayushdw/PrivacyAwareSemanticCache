@@ -253,6 +253,8 @@ class LocalLoRATrainer:
                 # Only clip gradients manually when DP is disabled (Opacus handles it)
                 if not self.enable_dp:
                     torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.0)
+                
+                # If DP is enabled, Opacus injects Gaussian noise and performs clipping here
                 self.optimizer.step()
 
                 epoch_loss += loss.item()

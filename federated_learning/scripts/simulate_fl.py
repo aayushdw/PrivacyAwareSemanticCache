@@ -78,12 +78,14 @@ def run_simulation(
         dp_max_grad_norm=dp_max_grad_norm,
     )
 
-    # Initialize weight manager and load initial weights
+    # Initialize weight manager and load initial weights.
+    # load_initial_lora_weights() may update server_config.target_modules
+    # to match the saved adapter, so lora_config must be built afterwards.
     weight_manager = ServerWeightManager(server_config)
     initial_weights, _ = weight_manager.load_initial_lora_weights()
     initial_parameters = ndarrays_to_parameters(initial_weights)
 
-    # Create LoRA config
+    # Create LoRA config (after loading weights, since target_modules may have been updated)
     lora_config = {
         "lora_r": server_config.lora_r,
         "lora_alpha": server_config.lora_alpha,
