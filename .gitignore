@@ -1,4 +1,7 @@
-# Environment and secrets
+.*
+!.dvc
+!.gitignore
+
 .env
 
 agent/
@@ -14,15 +17,6 @@ CLAUDE.md
 __pycache__/
 *.pyc
 *.pyo
-
-# Virtual environment
-.venv/
-
-# IDE
-.vscode/
-
-# macOS
-.DS_Store
 
 # MLflow
 mlflow/data/
