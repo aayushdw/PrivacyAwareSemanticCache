@@ -14,11 +14,7 @@ from .lora_trainer import TrainingResult
 
 
 class LoRAModelSaver:
-    """
-    Handles saving and registering LoRA adapters.
-
-    Integrates with MLFlow Model Registry for versioning and lifecycle management.
-    """
+    """Save and register LoRA adapters with MLFlow Model Registry."""
 
     def __init__(self):
         """Initialize model saver."""
@@ -69,17 +65,7 @@ class LoRAModelSaver:
         result: TrainingResult,
         run_id: Optional[str] = None,
     ) -> str:
-        """
-        Log adapter to current MLFlow run.
-
-        Args:
-            adapter_path: Path to saved adapter
-            result: Training result
-            run_id: Optional run ID (uses active run if not provided)
-
-        Returns:
-            Artifact path in MLFlow
-        """
+        """Log adapter directory to MLFlow as artifact."""
         artifact_name = f"lora_adapter_{result.model_key}"
 
         # Log the entire adapter directory
@@ -96,18 +82,7 @@ class LoRAModelSaver:
         artifact_path: str,
         tags: Optional[Dict[str, str]] = None,
     ) -> dict:
-        """
-        Register adapter in MLFlow Model Registry.
-
-        Args:
-            result: Training result
-            run_id: MLFlow run ID
-            artifact_path: Path to adapter artifact in MLFlow
-            tags: Additional tags
-
-        Returns:
-            Registration info with model_name and version
-        """
+        """Register adapter in MLFlow Model Registry with metrics and tags."""
         metrics = {
             "f1_score": result.final_f1,
             "precision": result.final_precision,

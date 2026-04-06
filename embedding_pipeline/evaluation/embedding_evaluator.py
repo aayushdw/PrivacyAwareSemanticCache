@@ -141,11 +141,7 @@ class EvaluationResult:
 
 
 class EmbeddingEvaluator:
-    """
-    Evaluates embedding models for semantic similarity.
-
-    Handles model loading, embedding generation, and metric computation.
-    """
+    """Evaluates embedding models for semantic similarity."""
 
     def __init__(
         self,
@@ -250,10 +246,6 @@ class EmbeddingEvaluator:
     ) -> Tuple[np.ndarray, float]:
         """
         Compute cosine similarities between question pairs.
-
-        Args:
-            questions1: First questions
-            questions2: Second questions
 
         Returns:
             Tuple of (similarities, encoding_time)
@@ -446,9 +438,6 @@ class EmbeddingEvaluator:
             model_info: Model to evaluate
             df: Dataset with columns (anchor, positive, negative)
             threshold: Fixed threshold to use
-
-        Returns:
-            Classification metrics
         """
         try:
             with DeviceContext(model_info.estimated_memory_mb):

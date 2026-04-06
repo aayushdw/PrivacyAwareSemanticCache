@@ -113,7 +113,7 @@ class LocalLoRATrainer:
         )
 
     def _mean_pooling(self, model_output, attention_mask):
-        """Mean pooling for sentence embeddings."""
+        """Apply mean pooling to obtain sentence embedding."""
         token_embeddings = model_output[0]
         input_mask_expanded = (
             attention_mask.unsqueeze(-1).expand(token_embeddings.size()).float()
@@ -123,7 +123,7 @@ class LocalLoRATrainer:
         )
 
     def _encode(self, input_ids, attention_mask):
-        """Encode text to normalized embeddings."""
+        """Encode input to normalized embeddings."""
         outputs = self.model(input_ids=input_ids, attention_mask=attention_mask)
         embeddings = self._mean_pooling(outputs, attention_mask)
         return nn.functional.normalize(embeddings, p=2, dim=1)
@@ -283,7 +283,7 @@ class LocalLoRATrainer:
         return result
 
     def cleanup(self) -> None:
-        """Clean up resources."""
+        """Release model and optimizer resources."""
         self.model = None
         self.tokenizer = None
         self.optimizer = None

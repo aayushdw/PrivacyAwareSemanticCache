@@ -9,20 +9,10 @@ from ..config.pipeline_config import get_config
 
 
 class ModelRegistryClient:
-    """
-    Manages LoRA adapters in MLFlow Model Registry.
-
-    Handles registration, versioning, and lifecycle stage transitions
-    (None -> Staging -> Production).
-    """
+    """Register and manage LoRA adapters with versioning and stage transitions."""
 
     def __init__(self, tracking_uri: Optional[str] = None):
-        """
-        Initialize model registry client.
-
-        Args:
-            tracking_uri: MLFlow tracking server URI
-        """
+        """Initialize model registry client with optional tracking URI."""
         config = get_config()
         self.tracking_uri = tracking_uri or config.mlflow.tracking_uri
         mlflow.set_tracking_uri(self.tracking_uri)
@@ -30,15 +20,7 @@ class ModelRegistryClient:
 
     @staticmethod
     def get_model_name(model_key: str) -> str:
-        """
-        Get standardized model name for registry.
-
-        Args:
-            model_key: Model key (e.g., 'minilm-l6')
-
-        Returns:
-            Registry model name (e.g., 'semantic-cache-minilm-l6-lora')
-        """
+        """Get standardized model name for registry."""
         clean_key = model_key.lower().replace(" ", "-").replace("_", "-")
         return f"semantic-cache-{clean_key}-lora"
 
@@ -98,13 +80,7 @@ class ModelRegistryClient:
             raise
 
     def promote_to_staging(self, model_key: str, version: Optional[int] = None):
-        """
-        Promote a model version to Staging.
-
-        Args:
-            model_key: Model key identifier
-            version: Specific version (defaults to latest)
-        """
+        """Promote model version to Staging stage."""
         model_name = self.get_model_name(model_key)
 
         if version is None:
@@ -159,15 +135,7 @@ class ModelRegistryClient:
         print(f"Promoted {model_name} v{version} to Production")
 
     def get_production_model_uri(self, model_key: str) -> Optional[str]:
-        """
-        Get URI for the production version of a model.
-
-        Args:
-            model_key: Model key identifier
-
-        Returns:
-            Model URI or None if no production version
-        """
+        """Get URI for production version of model."""
         model_name = self.get_model_name(model_key)
         prod_versions = self.client.get_latest_versions(model_name, stages=["Production"])
 
@@ -176,15 +144,7 @@ class ModelRegistryClient:
         return None
 
     def get_staging_model_uri(self, model_key: str) -> Optional[str]:
-        """
-        Get URI for the staging version of a model.
-
-        Args:
-            model_key: Model key identifier
-
-        Returns:
-            Model URI or None if no staging version
-        """
+        """Get URI for staging version of model."""
         model_name = self.get_model_name(model_key)
         staging_versions = self.client.get_latest_versions(model_name, stages=["Staging"])
 
@@ -193,15 +153,7 @@ class ModelRegistryClient:
         return None
 
     def list_model_versions(self, model_key: str) -> List[dict]:
-        """
-        List all versions of a model.
-
-        Args:
-            model_key: Model key identifier
-
-        Returns:
-            List of version information dictionaries
-        """
+        """List all versions of a model with metadata."""
         model_name = self.get_model_name(model_key)
 
         try:
@@ -220,16 +172,7 @@ class ModelRegistryClient:
             return []
 
     def get_model_info(self, model_key: str, stage: str = "Production") -> Optional[dict]:
-        """
-        Get information about a specific model stage.
-
-        Args:
-            model_key: Model key identifier
-            stage: Stage to query ('Production', 'Staging', 'Archived', 'None')
-
-        Returns:
-            Model version info or None
-        """
+        """Get information about model at specific stage."""
         model_name = self.get_model_name(model_key)
 
         try:

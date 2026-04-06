@@ -34,17 +34,7 @@ class LoRAFedAvg(FedAvg):
         initial_parameters: Optional[Parameters] = None,
         **kwargs,
     ):
-        """
-        Initialize LoRA FedAvg strategy.
-
-        Args:
-            base_model_name: HuggingFace model ID for base model
-            lora_config: Dict with lora_r, lora_alpha, lora_dropout, target_modules
-            weight_manager: Server weight manager for saving checkpoints
-            dp_config: Optional dict with enable_dp, dp_epsilon, dp_delta, dp_max_grad_norm
-            initial_parameters: Initial LoRA parameters
-            **kwargs: Additional arguments for FedAvg
-        """
+        """Initialize LoRA FedAvg strategy with model and DP config."""
         super().__init__(initial_parameters=initial_parameters, **kwargs)
         self.base_model_name = base_model_name
         self.lora_config = lora_config

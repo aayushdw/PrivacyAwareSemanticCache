@@ -74,7 +74,7 @@ def set_lora_parameters(
 
 
 def get_lora_param_names(model, lora_b_only: bool = False) -> List[str]:
-    """Get sorted list of LoRA parameter names."""
+    """Extract sorted LoRA parameter names from model."""
     names = []
     for name, param in model.named_parameters():
         if "lora_B" in name:
@@ -85,7 +85,7 @@ def get_lora_param_names(model, lora_b_only: bool = False) -> List[str]:
 
 
 def count_lora_parameters(model, lora_b_only: bool = False) -> Dict[str, int]:
-    """Count the number of LoRA parameters in the model."""
+    """Count total and tensor count of LoRA parameters."""
     total_params = 0
     num_tensors = 0
 
@@ -101,7 +101,7 @@ def count_lora_parameters(model, lora_b_only: bool = False) -> Dict[str, int]:
 
 
 def freeze_lora_a(model) -> int:
-    """Freeze all lora_A parameters in the model. Returns count of frozen parameters."""
+    """Freeze lora_A parameters and return count of frozen parameters."""
     frozen_count = 0
     for name, param in model.named_parameters():
         if "lora_A" in name:

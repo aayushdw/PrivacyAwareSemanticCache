@@ -17,12 +17,7 @@ class ServerWeightManager:
     """Manages loading and aggregating LoRA weights on the server."""
 
     def __init__(self, config: FLServerConfig):
-        """
-        Initialize weight manager.
-
-        Args:
-            config: Server configuration
-        """
+        """Initialize weight manager."""
         self.config = config
         self.lora_param_names: List[str] = []
         self.freeze_lora_a = config.freeze_lora_a
@@ -71,7 +66,7 @@ class ServerWeightManager:
         return self._initialize_fresh_lora()
 
     def _sync_config_from_adapter(self, lora_path: str) -> None:
-        """Read adapter_config.json and update server config to match."""
+        """Sync target_modules from adapter config to server config."""
         config_path = os.path.join(lora_path, "adapter_config.json")
         if not os.path.exists(config_path):
             return
@@ -160,7 +155,7 @@ class ServerWeightManager:
         return output_path
 
     def _save_adapter_config(self, config_path: str) -> None:
-        """Save adapter_config.json for PEFT compatibility."""
+        """Save adapter config for PEFT compatibility."""
         import json
 
         config = {

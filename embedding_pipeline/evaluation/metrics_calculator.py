@@ -120,9 +120,6 @@ class MetricsCalculator:
         Args:
             positive_similarities: Cosine similarities between anchor and positive
             negative_similarities: Cosine similarities between anchor and negative
-
-        Returns:
-            TripletMetrics instance
         """
         # Triplet accuracy: how often positive similarity > negative similarity
         correct = positive_similarities > negative_similarities
@@ -156,9 +153,6 @@ class MetricsCalculator:
             similarities: Cosine similarity scores
             labels: Ground truth labels (0 or 1)
             threshold: Similarity threshold for classification
-
-        Returns:
-            ClassificationMetrics instance
         """
         predictions = (similarities >= threshold).astype(int)
 

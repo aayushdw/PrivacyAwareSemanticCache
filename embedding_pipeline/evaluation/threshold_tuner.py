@@ -14,7 +14,7 @@ from .metrics_calculator import ClassificationMetrics, MetricsCalculator
 
 @dataclass
 class ThresholdResult:
-    """Result of threshold tuning."""
+    """Threshold tuning result with metrics and statistics."""
 
     threshold: float
     f1_score: float
@@ -31,7 +31,7 @@ class ThresholdResult:
     similarity_stats: Optional[dict] = None
 
     def to_dict(self) -> dict:
-        """Convert to dictionary for logging."""
+        """Convert result to dictionary for logging."""
         result = {
             "optimal_threshold": self.threshold,
             "f1_score": self.f1_score,
@@ -87,25 +87,14 @@ class ThresholdResult:
 
 
 class ThresholdTuner:
-    """
-    Tunes similarity thresholds for embedding models.
-
-    Supports constraint-based optimization: maximize F1 while ensuring
-    precision >= min_precision.
-    """
+    """Tunes similarity thresholds for embedding models with constraint-based optimization."""
 
     def __init__(
         self,
         threshold_range: Tuple[float, float] = (0.50, 0.99),
         threshold_step: float = 0.01,
     ):
-        """
-        Initialize threshold tuner.
-
-        Args:
-            threshold_range: Range of thresholds to search
-            threshold_step: Step size for threshold search
-        """
+        """Initialize threshold tuner with search range and step."""
         self.threshold_range = threshold_range
         self.threshold_step = threshold_step
         self.calculator = MetricsCalculator()
@@ -117,20 +106,7 @@ class ThresholdTuner:
         min_precision: Optional[float] = None,
         metric: str = "f1",
     ) -> ThresholdResult:
-        """
-        Find optimal threshold from triplet similarities.
-
-        Converts triplet similarities to classification format and finds optimal threshold.
-
-        Args:
-            positive_similarities: Similarities between anchor and positive (similar pairs)
-            negative_similarities: Similarities between anchor and negative (dissimilar pairs)
-            min_precision: Minimum precision constraint (e.g., 0.80 for 80%)
-            metric: Metric to optimize ('f1', 'accuracy', 'recall')
-
-        Returns:
-            ThresholdResult with optimal threshold and metrics
-        """
+        """Find optimal threshold from triplet similarities with optional precision constraint."""
         # Convert triplets to classification data
         similarities, labels = self.calculator.triplets_to_classification_data(
             positive_similarities, negative_similarities
@@ -158,18 +134,7 @@ class ThresholdTuner:
         min_precision: Optional[float] = None,
         metric: str = "f1",
     ) -> ThresholdResult:
-        """
-        Find optimal threshold that maximizes the target metric.
-
-        Args:
-            similarities: Cosine similarity scores
-            labels: Ground truth labels (0 or 1)
-            min_precision: Minimum precision constraint (e.g., 0.80 for 80%)
-            metric: Metric to optimize ('f1', 'accuracy', 'recall')
-
-        Returns:
-            ThresholdResult with optimal threshold and metrics
-        """
+        """Find threshold that maximizes metric while meeting optional precision constraint."""
         # Validate inputs
         similarities = np.asarray(similarities)
         labels = np.asarray(labels)
@@ -247,11 +212,7 @@ class ThresholdTuner:
         labels: np.ndarray,
         target_recall: float,
     ) -> Optional[ThresholdResult]:
-        """
-        Find threshold that achieves at least target recall.
-
-        Useful for applications where recall (cache hit rate) is critical.
-        """
+        """Find threshold that achieves at least target recall."""
         best_threshold = None
         best_metrics = None
         best_precision = -1.0
@@ -291,11 +252,7 @@ class ThresholdTuner:
         center_threshold: float,
         delta: float = 0.05,
     ) -> dict:
-        """
-        Analyze how metrics change around a threshold.
-
-        Useful for understanding threshold stability.
-        """
+        """Analyze how metrics change around a threshold."""
         results = {}
 
         for offset in [-delta, 0, delta]:

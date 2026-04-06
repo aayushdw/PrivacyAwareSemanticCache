@@ -15,11 +15,7 @@ from .experiment_manager import ExperimentManager
 
 
 class RunLogger:
-    """
-    Handles MLFlow run logging for the evaluation pipeline.
-
-    Provides structured logging of parameters, metrics, tags, and artifacts.
-    """
+    """Log metrics, parameters, tags, and artifacts to MLFlow runs."""
 
     def __init__(self):
         """Initialize run logger."""
@@ -233,14 +229,7 @@ class RunLogger:
             os.unlink(temp_path)
 
     def log_plot(self, figure, filename: str, artifact_path: str = "plots"):
-        """
-        Log matplotlib figure as artifact.
-
-        Args:
-            figure: Matplotlib figure
-            filename: Filename for the plot
-            artifact_path: Artifact subdirectory
-        """
+        """Save matplotlib figure and log as artifact."""
         with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as f:
             figure.savefig(f.name, dpi=150, bbox_inches="tight")
             temp_path = f.name

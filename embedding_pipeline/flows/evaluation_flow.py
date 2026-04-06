@@ -202,17 +202,7 @@ def quick_evaluate_models_flow(
     threshold: float = 0.85,
     max_samples: int = 1000,
 ) -> List[dict]:
-    """
-    Quick evaluation at fixed threshold (for rapid testing).
-
-    Args:
-        model_keys: Model keys to evaluate
-        threshold: Fixed similarity threshold
-        max_samples: Max samples for evaluation
-
-    Returns:
-        List of metric dictionaries
-    """
+    """Quick evaluation at fixed threshold for rapid testing."""
     from ..registry.model_registry import get_model_info
 
     logger = get_run_logger()

@@ -27,18 +27,7 @@ def train_lora_adapter_task(
     val_csv: str,
     config: LoRATrainingConfig,
 ) -> TrainingResult:
-    """
-    Train LoRA adapter for a single model.
-
-    Args:
-        ranked_model: Model to fine-tune
-        train_csv: Training data path
-        val_csv: Validation data path
-        config: Training configuration
-
-    Returns:
-        TrainingResult
-    """
+    """Train LoRA adapter for a single model."""
     logger = get_run_logger()
     logger.info(f"Training LoRA for: {ranked_model.model_name}")
 
@@ -68,17 +57,7 @@ def log_training_task(
     model_info_dict: dict,
     config_dict: dict,
 ) -> Optional[str]:
-    """
-    Log training results to MLFlow and register adapter.
-
-    Args:
-        result: Training result
-        model_info_dict: Model info dictionary
-        config_dict: Training config dictionary
-
-    Returns:
-        Run ID or None if failed
-    """
+    """Log training results to MLFlow and register adapter."""
     logger = get_run_logger()
 
     if not result.success:

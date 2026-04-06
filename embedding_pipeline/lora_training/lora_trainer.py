@@ -155,11 +155,7 @@ class TripletDataset(Dataset):
 
 
 class LoRATrainer:
-    """
-    LoRA fine-tuning trainer for embedding models.
-
-    Supports early stopping based on validation loss.
-    """
+    """LoRA fine-tuning trainer with early stopping based on validation loss."""
 
     def __init__(
         self,
@@ -167,14 +163,7 @@ class LoRATrainer:
         config: Optional[LoRATrainingConfig] = None,
         output_dir: str = "embedding_pipeline/outputs/models",
     ):
-        """
-        Initialize trainer.
-
-        Args:
-            model_info: Model to fine-tune
-            config: Training configuration
-            output_dir: Directory to save trained models
-        """
+        """Initialize trainer."""
         self.model_info = model_info
         self.config = config or LoRATrainingConfig.from_pipeline_config()
         self.output_dir = output_dir
@@ -408,16 +397,7 @@ class LoRATrainer:
         return best_threshold, metrics
 
     def train(self, train_csv: str, val_csv: str) -> TrainingResult:
-        """
-        Train LoRA adapter.
-
-        Args:
-            train_csv: Path to training data
-            val_csv: Path to validation data
-
-        Returns:
-            TrainingResult with metrics and adapter path
-        """
+        """Train LoRA adapter on triplet data with early stopping and threshold optimization."""
         model_key = self.model_info.name.lower().replace(" ", "-")
 
         result = TrainingResult(

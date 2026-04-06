@@ -4,7 +4,7 @@ A multi-layered framework for building and evaluating privacy-preserving semanti
 
 ---
 
-## 🏗️ Core Components
+## Core Components
 
 ### 1. Embedding Model Evaluation Pipeline
 > [!NOTE]

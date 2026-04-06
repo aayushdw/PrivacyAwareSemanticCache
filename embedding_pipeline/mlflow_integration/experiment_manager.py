@@ -13,19 +13,10 @@ from ..config.pipeline_config import get_config, get_experiment_name
 
 
 class ExperimentManager:
-    """
-    Manages MLFlow experiments for the evaluation pipeline.
-
-    Handles experiment creation, hierarchy, and configuration.
-    """
+    """Create and manage MLFlow experiments with hierarchical organization."""
 
     def __init__(self, tracking_uri: Optional[str] = None):
-        """
-        Initialize experiment manager.
-
-        Args:
-            tracking_uri: MLFlow tracking server URI (defaults to config)
-        """
+        """Initialize experiment manager with optional tracking URI."""
         config = get_config()
         self.tracking_uri = tracking_uri or config.mlflow.tracking_uri
         self.experiment_prefix = config.mlflow.experiment_prefix
@@ -34,15 +25,7 @@ class ExperimentManager:
         self.client = MlflowClient()
 
     def get_or_create_experiment(self, experiment_name: str) -> str:
-        """
-        Get or create an experiment.
-
-        Args:
-            experiment_name: Name of the experiment
-
-        Returns:
-            Experiment ID
-        """
+        """Get existing experiment or create new one."""
         experiment = self.client.get_experiment_by_name(experiment_name)
 
         if experiment is None:
@@ -70,15 +53,7 @@ class ExperimentManager:
         return self.get_or_create_experiment(experiment_name)
 
     def set_experiment(self, stage: str) -> str:
-        """
-        Set the active experiment for a pipeline stage.
-
-        Args:
-            stage: Pipeline stage ('threshold_tuning', 'ranking', 'lora_training')
-
-        Returns:
-            Experiment ID
-        """
+        """Set active experiment for a pipeline stage."""
         experiment_name = get_experiment_name(stage)
         experiment_id = self.get_or_create_experiment(experiment_name)
         mlflow.set_experiment(experiment_name)

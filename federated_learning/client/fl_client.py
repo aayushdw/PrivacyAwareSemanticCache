@@ -27,12 +27,7 @@ class LoRAFlowerClient(fl.client.Client):
     """
 
     def __init__(self, config: FLClientConfig):
-        """
-        Initialize Flower client.
-
-        Args:
-            config: Client configuration with data path and training params
-        """
+        """Initialize Flower client."""
         self.config = config
         self.trainer: LocalLoRATrainer = None
         self.base_model_name: str = None
@@ -97,7 +92,7 @@ class LoRAFlowerClient(fl.client.Client):
             print("  DP-SGD: Disabled")
 
     def get_parameters(self, ins: GetParametersIns) -> GetParametersRes:
-        """Return current LoRA parameters (only lora_B if lora_A is frozen)."""
+        """Get current LoRA parameters (only lora_B if lora_A is frozen)."""
         if self.trainer is None or self.trainer.model is None:
             # Return empty if not initialized
             return GetParametersRes(
@@ -155,7 +150,7 @@ class LoRAFlowerClient(fl.client.Client):
 
 
 def start_client(config: FLClientConfig) -> None:
-    """Start a Flower client."""
+    """Start Flower client and connect to server."""
     client = LoRAFlowerClient(config)
     fl.client.start_client(
         server_address=config.server_address,

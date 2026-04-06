@@ -19,17 +19,7 @@ def rank_models_task(
     min_precision: float,
     top_n: int,
 ) -> List[RankedModel]:
-    """
-    Rank models by F1 score with precision constraint.
-
-    Args:
-        evaluation_results: List of evaluation results
-        min_precision: Minimum precision requirement
-        top_n: Number of models to select
-
-    Returns:
-        List of RankedModel in rank order
-    """
+    """Rank models by F1 score with precision constraint."""
     logger = get_run_logger()
 
     ranker = ModelRanker(min_precision=min_precision)
@@ -53,17 +43,7 @@ def generate_report_task(
     all_results: List[EvaluationResult],
     min_precision: float,
 ) -> str:
-    """
-    Generate comparison report.
-
-    Args:
-        ranked_models: Ranked models
-        all_results: All evaluation results
-        min_precision: Precision constraint used
-
-    Returns:
-        Markdown report content
-    """
+    """Generate comparison report for ranked models."""
     logger = get_run_logger()
 
     generator = ComparisonReportGenerator(min_precision=min_precision)
@@ -81,15 +61,7 @@ def log_ranking_task(
     min_precision: float,
     top_n: int,
 ):
-    """
-    Log ranking results to MLFlow.
-
-    Args:
-        ranked_models: Ranked models
-        report_content: Markdown report
-        min_precision: Precision constraint
-        top_n: Number of models selected
-    """
+    """Log ranking results to MLFlow."""
     logger = get_run_logger()
 
     # Set up experiment
