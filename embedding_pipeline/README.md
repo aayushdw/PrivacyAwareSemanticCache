@@ -1,5 +1,3 @@
-<!-- This documentation was generated to capture architecture, design decisions, and real-world insights. -->
-
 # Embedding Model Evaluation Pipeline
 
 This is a multi-stage Prefect-orchestrated pipeline that evaluates embedding models, ranks them by performance and fine-tunes the best performers using Low-Rank Adaptation (LoRA). It powers the semantic cache by finding and customizing the most effective embedding models for your specific domain.

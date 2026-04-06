@@ -92,4 +92,18 @@ A system built on [Flower](https://flower.ai/) that enables multiple clients to 
 
 See [federated_learning/README.md](federated_learning/README.md) for architecture details, design decisions (like why we freeze LoRA-A), and simulation guides.
 
+### 3. Synthetic Data Generator
+> [!NOTE]
+> This section describes the distributed pipeline for generating synthetic datasets using Google Gemini models.
+
+An asynchronous, distributed pipeline for generating synthetic semantic datasets that teaches embedding models to understand variations in semantic intent.
+
+#### Key Features
+- **LangGraph Orchestration**: Robust state management and parallel execution of model workers.
+- **Distributed Throttling**: Clock-based per-worker rate limiting to respect API quotas without a central bottleneck.
+- **Hard Negative Generation**: Automatically generates questions with overlapping keywords but different semantic intent.
+- **Scalable Architecture**: Decouples API pacing from orchestration complexity via a worker-based model.
+
+See [data/synthetic_data_generator/README.md](data/synthetic_data_generator/README.md) for architecture diagrams, concurrency models, and integration points.
+
 ---

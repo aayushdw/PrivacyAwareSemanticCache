@@ -1,5 +1,3 @@
-<!-- This documentation captures architecture, design decisions, and real-world insights for the federated learning system. -->
-
 # Federated Learning: Privacy-Preserving Collaborative Model Improvement
 
 This directory implements a privacy-aware federated learning (FL) system using [Flower](https://flower.ai/) that enables multiple clients to collaboratively improve a shared embedding model without sharing raw training data. The system uses LoRA (Low-Rank Adaptation) for efficient adaptation and optionally applies Differential Privacy (DP-SGD) for formal privacy guarantees.
