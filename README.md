@@ -76,6 +76,6 @@ Key settings in `embedding_pipeline/config/pipeline_config.py`:
 - `top_n`: Default 3
 - `lora_r`: Default 16
 
-See [embedding_pipeline/docs/RESULTS.md](embedding_pipeline/docs/RESULTS.md) for detailed evaluation and fine-tuning results.
+See [embedding_pipeline/README.md](embedding_pipeline/README.md) for detailed architecture and [embedding_pipeline/docs/RESULTS.md](embedding_pipeline/docs/RESULTS.md) for evaluation and fine-tuning results.
 
 ---
