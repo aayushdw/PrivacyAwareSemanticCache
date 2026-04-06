@@ -78,4 +78,18 @@ Key settings in `embedding_pipeline/config/pipeline_config.py`:
 
 See [embedding_pipeline/README.md](embedding_pipeline/README.md) for detailed architecture and [embedding_pipeline/docs/RESULTS.md](embedding_pipeline/docs/RESULTS.md) for evaluation and fine-tuning results.
 
+### 2. Federated Learning System
+> [!NOTE]
+> This section describes the privacy-preserving federated learning framework for collaborative model improvement.
+
+A system built on [Flower](https://flower.ai/) that enables multiple clients to refine a shared embedding model using local data without compromising privacy.
+
+#### Key Features
+- **LoRA-Based Collaboration**: Only tiny adapter weights are exchanged, minimizing communication and keeping the base model frozen.
+- **Differential Privacy (DP-SGD)**: Optional formal privacy guarantees using [Opacus](https://opacus.ai/) to protect against weight-based data reconstruction.
+- **Tripplet loss training**: Fine-tunes embeddings specifically for semantic similarity intent.
+- **PEFT Integration**: Full compatibility with HuggingFace's Parameter-Efficient Fine-Tuning library.
+
+See [federated_learning/README.md](federated_learning/README.md) for architecture details, design decisions (like why we freeze LoRA-A), and simulation guides.
+
 ---
