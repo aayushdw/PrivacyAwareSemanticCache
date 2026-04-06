@@ -28,28 +28,26 @@ This pipeline implements a systematic approach to identifying and enhancing the 
 ```mermaid
 flowchart TB
     subgraph Stage1["Stage 1: Load Candidates"]
-        R[Model Registry] --> F[Filter by Category]
-        F --> L[LoRA/MPS Compatible Models]
+        direction LR
+        R[Model Registry] --> F[Filter by Category] --> L[LoRA/MPS Compatible Models]
     end
     
     subgraph Stage2["Stage 2: Evaluate Models"]
-        L --> E[Embedding Evaluator]
-        E --> T[Threshold Tuning<br/>Precision ≥ 0.80]
-        T --> M[Test Metrics<br/>F1, Precision, Recall]
+        direction LR
+        E[Embedding Evaluator] --> T[Threshold Tuning<br/>Precision ≥ 0.80] --> M[Test Metrics<br/>F1, Precision, Recall]
     end
     
     subgraph Stage3["Stage 3: Rank & Select"]
-        M --> R2[Rank by F1 Score]
-        R2 --> S[Select Top-N Models]
+        direction LR
+        R2[Rank by F1 Score] --> S[Select Top-N Models]
     end
     
     subgraph Stage4["Stage 4: LoRA Fine-tuning"]
-        S --> LT[LoRA Trainer<br/>Triplet Loss]
-        LT --> ES[Early Stopping]
-        ES --> A[Save Adapters]
+        direction LR
+        LT[LoRA Trainer<br/>Triplet Loss] --> ES[Early Stopping] --> A[Save Adapters]
     end
     
-    A --> MLF[(MLflow<br/>Model Registry)]
+    Stage1 --> Stage2 --> Stage3 --> Stage4 --> MLF[(MLflow<br/>Model Registry)]
 ```
 
 #### Key Features
